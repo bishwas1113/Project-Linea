@@ -6,341 +6,185 @@
   <title>Project Linea — Pattern Projector</title>
   <style>
     :root {
-      --bg: #111;
-      --sidebar-bg: #1c1c1c;
-      --sidebar-border: #2a2a2a;
-      --section-border: #2e2e2e;
-      --text: #e0e0e0;
-      --text-dim: #888;
-      --text-muted: #555;
-      --accent: #4fa3ff;
-      --accent-hover: #74b8ff;
-      --danger: #ff5252;
-      --success: #44d988;
-      --warn: #ffb347;
-      --input-bg: #252525;
-      --input-border: #3a3a3a;
-      --btn-bg: #2a2a2a;
-      --btn-hover: #363636;
-      --sidebar-w: 284px;
+      --bg:#111; --sb:#1c1c1c; --sb-border:#2a2a2a; --sec:#2e2e2e;
+      --tx:#e0e0e0; --tx-dim:#888; --tx-mut:#555;
+      --accent:#4fa3ff; --accent-h:#74b8ff;
+      --danger:#ff5252; --success:#44d988; --warn:#ffb347;
+      --in-bg:#252525; --in-bdr:#3a3a3a;
+      --btn:#2a2a2a; --btn-h:#363636;
+      --sw:284px;
     }
-
-    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-
-    html, body {
-      width: 100%; height: 100%;
-      overflow: hidden;
-      background: var(--bg);
-      color: var(--text);
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
-      font-size: 12px;
-      line-height: 1.4;
-    }
-
-    #app { display: flex; width: 100%; height: 100vh; }
+    *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+    html,body{width:100%;height:100%;overflow:hidden;background:var(--bg);color:var(--tx);
+      font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-serif;font-size:12px;line-height:1.4}
+    #app{display:flex;width:100%;height:100vh}
 
     /* ── Sidebar ── */
-    #sidebar {
-      width: var(--sidebar-w);
-      min-width: var(--sidebar-w);
-      background: var(--sidebar-bg);
-      border-right: 1px solid var(--sidebar-border);
-      display: flex;
-      flex-direction: column;
-      overflow: hidden;
-    }
+    #sidebar{width:var(--sw);min-width:var(--sw);background:var(--sb);border-right:1px solid var(--sb-border);
+      display:flex;flex-direction:column;overflow:hidden}
+    .mode-tabs{display:flex;border-bottom:1px solid var(--sb-border);flex-shrink:0}
+    .mode-tab{flex:1;padding:10px 4px;background:none;border:none;border-right:1px solid var(--sb-border);
+      color:var(--tx-dim);cursor:pointer;font-size:11px;font-weight:600;letter-spacing:.4px;text-transform:uppercase;
+      transition:color .15s,background .15s}
+    .mode-tab:last-child{border-right:none}
+    .mode-tab:hover{color:var(--tx);background:var(--btn-h)}
+    .mode-tab.active{color:var(--accent);border-bottom:2px solid var(--accent);margin-bottom:-1px;
+      background:rgba(79,163,255,.06)}
+    .mode-panel{display:flex;flex-direction:column;flex:1;overflow-y:auto}
+    .mode-panel.hidden{display:none}
+    .section{border-bottom:1px solid var(--sec);padding:10px 12px}
+    .section:last-child{border-bottom:none}
+    .st{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.8px;color:var(--tx-mut);margin-bottom:8px}
+    .ss{font-size:10px;font-weight:600;color:var(--tx-dim);margin:6px 0 4px;text-transform:uppercase;letter-spacing:.5px}
+    .row{display:flex;align-items:center;gap:6px;margin-bottom:5px}
+    .row:last-child{margin-bottom:0}
+    .row label{color:var(--tx-dim);font-size:11px;min-width:62px;flex-shrink:0}
+    .vl{color:var(--tx-dim);font-size:11px;min-width:32px;text-align:right;flex-shrink:0}
+    .hint{font-size:11px;color:var(--tx-mut);line-height:1.5;margin-bottom:6px}
+    .hint.ok{color:var(--success)} .hint.warn{color:var(--warn)} .hint.err{color:var(--danger)}
 
-    .mode-tabs {
-      display: flex;
-      border-bottom: 1px solid var(--sidebar-border);
-      flex-shrink: 0;
-    }
-    .mode-tab {
-      flex: 1;
-      padding: 10px 4px;
-      background: none;
-      border: none;
-      border-right: 1px solid var(--sidebar-border);
-      color: var(--text-dim);
-      cursor: pointer;
-      font-size: 11px;
-      font-weight: 600;
-      letter-spacing: 0.4px;
-      text-transform: uppercase;
-      transition: color 0.15s, background 0.15s;
-    }
-    .mode-tab:last-child { border-right: none; }
-    .mode-tab:hover { color: var(--text); background: var(--btn-hover); }
-    .mode-tab.active { color: var(--accent); border-bottom: 2px solid var(--accent); margin-bottom: -1px; background: rgba(79,163,255,0.06); }
+    /* inputs */
+    input[type=range]{flex:1;height:4px;accent-color:var(--accent);cursor:pointer}
+    input[type=color]{width:28px;height:22px;border:1px solid var(--in-bdr);background:none;
+      cursor:pointer;padding:1px;border-radius:3px}
+    select,input[type=text],input[type=number]{background:var(--in-bg);border:1px solid var(--in-bdr);
+      color:var(--tx);padding:3px 6px;border-radius:4px;font-size:11px;outline:none}
+    select:focus,input[type=text]:focus,input[type=number]:focus{border-color:var(--accent)}
+    input[type=number]{width:56px;text-align:right}
 
-    .mode-panel { display: flex; flex-direction: column; flex: 1; overflow-y: auto; }
-    .mode-panel.hidden { display: none; }
+    /* buttons */
+    button{background:var(--btn);border:1px solid var(--in-bdr);color:var(--tx);padding:4px 10px;
+      border-radius:4px;cursor:pointer;font-size:11px;transition:background .12s,border-color .12s;white-space:nowrap}
+    button:hover{background:var(--btn-h);border-color:#555}
+    button.active{background:rgba(79,163,255,.2);border-color:var(--accent);color:var(--accent)}
+    button.sm{padding:3px 7px;font-size:10px}
+    button.danger{border-color:var(--danger);color:var(--danger)}
+    button.danger:hover{background:rgba(255,82,82,.15)}
+    button.accent{background:var(--accent);border-color:var(--accent);color:#000;font-weight:600}
+    button.accent:hover{background:var(--accent-h)}
+    button.full{width:100%;margin-bottom:5px;padding:6px}
+    button.full:last-child{margin-bottom:0}
+    .bgrp{display:flex;gap:2px}
+    .tool-btn{padding:3px 8px;font-size:10px;border-radius:3px}
 
-    .section {
-      border-bottom: 1px solid var(--section-border);
-      padding: 10px 12px;
-    }
-    .section:last-child { border-bottom: none; }
+    /* file drop */
+    .file-drop{display:flex;align-items:center;justify-content:center;border:1px dashed var(--in-bdr);
+      border-radius:5px;padding:12px 8px;cursor:pointer;text-align:center;color:var(--tx-dim);
+      font-size:11px;transition:border-color .15s,background .15s;margin-bottom:6px}
+    .file-drop:hover,.file-drop.drag-over{border-color:var(--accent);background:rgba(79,163,255,.05)}
 
-    .section-title {
-      font-size: 10px;
-      font-weight: 700;
-      text-transform: uppercase;
-      letter-spacing: 0.8px;
-      color: var(--text-muted);
-      margin-bottom: 8px;
-    }
-    .section-subtitle {
-      font-size: 10px;
-      font-weight: 600;
-      color: var(--text-dim);
-      margin: 6px 0 4px;
-      text-transform: uppercase;
-      letter-spacing: 0.5px;
-    }
+    /* sizes panel */
+    .size-entry{border:1px solid var(--sec);border-radius:5px;padding:6px 7px;margin-bottom:5px}
+    .size-hdr{display:flex;align-items:center;gap:5px;margin-bottom:5px}
+    .dash-sw{width:36px;height:14px;flex-shrink:0;border-radius:2px}
+    .size-lbl-in{flex:1;background:transparent;border:none;color:var(--tx);font-size:11px;
+      padding:0;outline:none;border-bottom:1px solid transparent}
+    .size-lbl-in:focus{border-bottom-color:var(--accent)}
+    .size-vis{display:flex;gap:2px}
+    .vis-btn{padding:2px 5px;font-size:10px;border-radius:3px}
+    .vs-show{background:rgba(68,217,136,.2);border-color:var(--success);color:var(--success)}
+    .vs-ghost{background:rgba(255,179,71,.2);border-color:var(--warn);color:var(--warn)}
+    .vs-hide{background:rgba(255,82,82,.15);border-color:var(--danger);color:var(--danger)}
+    .size-ctrls{display:flex;align-items:center;gap:5px;margin-top:4px}
+    .act-sz{font-size:10px;padding:2px 5px}
+    .act-sz.on{color:var(--warn);border-color:var(--warn);background:rgba(255,179,71,.15)}
 
-    .row {
-      display: flex;
-      align-items: center;
-      gap: 6px;
-      margin-bottom: 5px;
-    }
-    .row:last-child { margin-bottom: 0; }
+    /* scrollbar */
+    .mode-panel::-webkit-scrollbar{width:4px}
+    .mode-panel::-webkit-scrollbar-track{background:transparent}
+    .mode-panel::-webkit-scrollbar-thumb{background:var(--in-bdr);border-radius:2px}
 
-    .row label {
-      color: var(--text-dim);
-      font-size: 11px;
-      min-width: 64px;
-      flex-shrink: 0;
-    }
+    /* canvas area */
+    #canvas-area{flex:1;position:relative;overflow:hidden;background:#000}
+    #main-canvas{position:absolute;top:0;left:0;width:100%;height:100%;cursor:crosshair}
+    #loupe-canvas{position:absolute;bottom:14px;right:14px;width:180px;height:180px;
+      border:2px solid rgba(255,255,255,.3);border-radius:4px;display:none;pointer-events:none}
 
-    .val-label {
-      color: var(--text-dim);
-      font-size: 11px;
-      min-width: 32px;
-      text-align: right;
-      flex-shrink: 0;
-    }
+    /* minimap */
+    #minimap{position:absolute;bottom:14px;left:14px;width:160px;
+      background:rgba(0,0,0,.8);border:1px solid rgba(255,255,255,.25);border-radius:4px;
+      overflow:hidden;display:none}
+    #minimap canvas{display:block;width:160px}
+    #minimap-label{position:absolute;top:3px;left:5px;font-size:9px;color:rgba(255,255,255,.4);
+      pointer-events:none}
 
-    .hint {
-      font-size: 11px;
-      color: var(--text-muted);
-      line-height: 1.5;
-      margin-bottom: 6px;
-    }
-    .hint.success { color: var(--success); }
-    .hint.warn { color: var(--warn); }
+    /* float toolbar */
+    #float-toolbar{position:absolute;top:10px;left:50%;transform:translateX(-50%);
+      background:rgba(0,0,0,.85);border:1px solid var(--accent);border-radius:6px;
+      padding:5px 10px;display:flex;align-items:center;gap:6px;z-index:10;
+      backdrop-filter:blur(8px)}
+    #float-toolbar.hidden{display:none}
+    .ft-lbl{color:var(--accent);font-size:10px;font-weight:700;letter-spacing:.5px;text-transform:uppercase}
+    .ft-cn{color:var(--warn);font-size:11px;font-weight:700;min-width:22px}
+    .ft-sep{color:var(--tx-mut)}
 
-    /* ── Inputs ── */
-    input[type=range] {
-      flex: 1;
-      height: 4px;
-      accent-color: var(--accent);
-      cursor: pointer;
-    }
-    input[type=color] {
-      width: 28px; height: 22px;
-      border: 1px solid var(--input-border);
-      background: none;
-      cursor: pointer;
-      padding: 1px;
-      border-radius: 3px;
-    }
-    select, input[type=text], input[type=number] {
-      background: var(--input-bg);
-      border: 1px solid var(--input-border);
-      color: var(--text);
-      padding: 3px 6px;
-      border-radius: 4px;
-      font-size: 11px;
-      outline: none;
-    }
-    select:focus, input[type=text]:focus, input[type=number]:focus {
-      border-color: var(--accent);
-    }
-    input[type=number] { width: 56px; text-align: right; }
+    /* modal base */
+    .modal-ov{position:fixed;inset:0;background:rgba(0,0,0,.75);display:flex;
+      align-items:center;justify-content:center;z-index:100;backdrop-filter:blur(4px)}
+    .modal-ov.hidden{display:none}
+    .modal-box{background:#1e1e1e;border:1px solid var(--sec);border-radius:8px;
+      padding:20px;min-width:280px;max-width:380px}
+    .modal-title{font-size:14px;font-weight:700;margin-bottom:8px}
+    .modal-body{color:var(--tx-dim);font-size:12px;margin-bottom:14px;line-height:1.5}
+    .modal-acts{display:flex;justify-content:flex-end;gap:8px}
 
-    /* ── Buttons ── */
-    button {
-      background: var(--btn-bg);
-      border: 1px solid var(--input-border);
-      color: var(--text);
-      padding: 4px 10px;
-      border-radius: 4px;
-      cursor: pointer;
-      font-size: 11px;
-      transition: background 0.12s, border-color 0.12s;
-      white-space: nowrap;
-    }
-    button:hover { background: var(--btn-hover); border-color: #555; }
-    button.active { background: rgba(79,163,255,0.2); border-color: var(--accent); color: var(--accent); }
-    button.small { padding: 3px 7px; font-size: 10px; }
-    button.danger { border-color: var(--danger); color: var(--danger); }
-    button.danger:hover { background: rgba(255,82,82,0.15); }
-    button.accent { background: var(--accent); border-color: var(--accent); color: #000; font-weight: 600; }
-    button.accent:hover { background: var(--accent-hover); }
-    button.btn-full { width: 100%; margin-bottom: 5px; padding: 6px; }
-    button.btn-full:last-child { margin-bottom: 0; }
+    /* assembly modal */
+    #modal-assembly{align-items:flex-start;padding:20px}
+    .asm-wrap{background:#1a1a1a;border:1px solid var(--sec);border-radius:8px;
+      width:min(960px,96vw);height:min(680px,90vh);display:flex;flex-direction:column;overflow:hidden}
+    .asm-head{padding:12px 16px;border-bottom:1px solid var(--sec);flex-shrink:0;
+      display:flex;align-items:center;gap:10px}
+    .asm-head-title{font-size:13px;font-weight:700}
+    .asm-head-sub{font-size:11px;color:var(--tx-dim);flex:1}
+    .asm-body{flex:1;display:flex;overflow:hidden;min-height:0}
+    .asm-panel{width:210px;flex-shrink:0;border-right:1px solid var(--sec);
+      padding:12px;overflow-y:auto;display:flex;flex-direction:column;gap:8px}
+    .asm-panel .st{margin-bottom:4px}
+    .asm-grid-area{flex:1;overflow:auto;padding:12px;background:#111}
+    .asm-grid{display:grid;gap:4px;width:fit-content}
+    .asm-slot{position:relative;border:1.5px solid var(--sec);border-radius:3px;
+      background:var(--in-bg);overflow:hidden;transition:border-color .15s;
+      user-select:none}
+    .asm-slot canvas{display:block}
+    .asm-slot .asm-pnum{position:absolute;bottom:2px;right:4px;font-size:13px;
+      font-weight:700;color:rgba(255,255,255,.35);pointer-events:none}
+    .asm-slot .asm-ex{position:absolute;top:2px;right:2px;width:16px;height:16px;
+      background:rgba(0,0,0,.65);border:none;color:#aaa;border-radius:50%;cursor:pointer;
+      font-size:11px;line-height:16px;text-align:center;display:none;padding:0;z-index:2}
+    .asm-slot:hover .asm-ex{display:block}
+    .asm-slot .asm-ex:hover{background:var(--danger);color:#fff}
+    .asm-slot.excl{opacity:.25;pointer-events:none}
+    .asm-slot.excl .asm-ex{display:block;pointer-events:auto;background:var(--danger)}
+    .asm-slot.loading{display:flex;align-items:center;justify-content:center;
+      min-height:80px;color:var(--tx-mut);font-size:10px}
+    .asm-slot.drag-src{opacity:.4}
+    .asm-slot.drag-over{border-color:var(--accent)!important;background:rgba(79,163,255,.1)}
+    .asm-foot{padding:10px 16px;border-top:1px solid var(--sec);flex-shrink:0;
+      display:flex;align-items:center;gap:8px}
+    .asm-foot-info{flex:1;font-size:11px;color:var(--tx-dim)}
+    .asm-progress{width:100%;height:3px;background:var(--sec);border-radius:2px;margin-top:4px}
+    .asm-progress-bar{height:100%;background:var(--accent);border-radius:2px;
+      transition:width .2s;width:0}
 
-    .btn-group { display: flex; gap: 2px; }
-    .btn-group button.small { border-radius: 3px; }
+    /* project mode */
+    body.proj-mode #sidebar{display:none}
+    body.proj-mode #float-toolbar{display:none!important}
+    body.proj-mode #loupe-canvas{display:none!important}
+    body.proj-mode #minimap{display:none!important}
+    body.proj-mode #main-canvas{cursor:none}
 
-    /* ── Tool row ── */
-    .tool-row { display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 6px; }
-    .tool-btn {
-      padding: 3px 8px;
-      font-size: 10px;
-      border-radius: 3px;
-    }
+    /* global controls pinned */
+    .global-ctrls{border-top:1px solid var(--sb-border);margin-top:auto;flex-shrink:0}
 
-    /* ── File drop ── */
-    .file-drop {
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      border: 1px dashed var(--input-border);
-      border-radius: 5px;
-      padding: 12px 8px;
-      cursor: pointer;
-      text-align: center;
-      color: var(--text-dim);
-      font-size: 11px;
-      transition: border-color 0.15s, background 0.15s;
-      margin-bottom: 6px;
-    }
-    .file-drop:hover { border-color: var(--accent); background: rgba(79,163,255,0.05); }
-    .file-drop.drag-over { border-color: var(--accent); background: rgba(79,163,255,0.1); }
-
-    /* ── Sizes panel ── */
-    .size-entry {
-      border: 1px solid var(--section-border);
-      border-radius: 5px;
-      padding: 6px 7px;
-      margin-bottom: 5px;
-    }
-    .size-entry-header {
-      display: flex;
-      align-items: center;
-      gap: 5px;
-      margin-bottom: 5px;
-    }
-    .dash-swatch {
-      width: 36px;
-      height: 14px;
-      flex-shrink: 0;
-      border-radius: 2px;
-    }
-    .size-label-input {
-      flex: 1;
-      background: transparent;
-      border: none;
-      color: var(--text);
-      font-size: 11px;
-      padding: 0;
-      outline: none;
-      border-bottom: 1px solid transparent;
-    }
-    .size-label-input:focus { border-bottom-color: var(--accent); }
-    .size-entry-vis { display: flex; gap: 2px; }
-    .vis-btn { padding: 2px 5px; font-size: 10px; border-radius: 3px; }
-    .vis-btn.active-show { background: rgba(68,217,136,0.2); border-color: var(--success); color: var(--success); }
-    .vis-btn.active-ghost { background: rgba(255,179,71,0.2); border-color: var(--warn); color: var(--warn); }
-    .vis-btn.active-hide { background: rgba(255,82,82,0.15); border-color: var(--danger); color: var(--danger); }
-    .size-entry-controls { display: flex; align-items: center; gap: 5px; margin-top: 4px; }
-    .active-size-btn { font-size: 10px; padding: 2px 5px; }
-    .active-size-btn.is-active { color: var(--warn); border-color: var(--warn); background: rgba(255,179,71,0.15); }
-
-    /* ── Scrollbar ── */
-    .mode-panel::-webkit-scrollbar { width: 4px; }
-    .mode-panel::-webkit-scrollbar-track { background: transparent; }
-    .mode-panel::-webkit-scrollbar-thumb { background: var(--input-border); border-radius: 2px; }
-
-    /* ── Canvas area ── */
-    #canvas-area {
-      flex: 1;
-      position: relative;
-      overflow: hidden;
-      background: #000;
-    }
-
-    #main-canvas, #loupe-canvas {
-      position: absolute;
-      top: 0; left: 0;
-    }
-    #main-canvas { width: 100%; height: 100%; cursor: crosshair; }
-    #loupe-canvas {
-      width: 180px; height: 180px;
-      bottom: 14px; right: 14px;
-      top: auto; left: auto;
-      border: 2px solid rgba(255,255,255,0.3);
-      border-radius: 4px;
-      display: none;
-      pointer-events: none;
-    }
-
-    /* ── Float toolbar ── */
-    #float-toolbar {
-      position: absolute;
-      top: 10px;
-      left: 50%;
-      transform: translateX(-50%);
-      background: rgba(0,0,0,0.85);
-      border: 1px solid var(--accent);
-      border-radius: 6px;
-      padding: 5px 10px;
-      display: flex;
-      align-items: center;
-      gap: 6px;
-      z-index: 10;
-      backdrop-filter: blur(8px);
-    }
-    #float-toolbar.hidden { display: none; }
-    .ft-label { color: var(--accent); font-size: 10px; font-weight: 700; letter-spacing: 0.5px; text-transform: uppercase; }
-    .ft-corner { color: var(--warn); font-size: 11px; font-weight: 700; min-width: 22px; }
-    .ft-sep { color: var(--text-muted); }
-
-    /* ── Modal ── */
-    .modal-overlay {
-      position: fixed;
-      inset: 0;
-      background: rgba(0,0,0,0.7);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      z-index: 100;
-      backdrop-filter: blur(4px);
-    }
-    .modal-overlay.hidden { display: none; }
-    .modal {
-      background: #1e1e1e;
-      border: 1px solid var(--section-border);
-      border-radius: 8px;
-      padding: 20px;
-      min-width: 280px;
-      max-width: 360px;
-    }
-    .modal-title { font-size: 14px; font-weight: 700; margin-bottom: 8px; }
-    .modal-body { color: var(--text-dim); font-size: 12px; margin-bottom: 14px; line-height: 1.5; }
-    .modal-actions { display: flex; justify-content: flex-end; gap: 8px; }
-
-    /* ── Project mode ── */
-    body.project-mode #sidebar { display: none; }
-    body.project-mode #float-toolbar { display: none !important; }
-    body.project-mode #loupe-canvas { display: none !important; }
-    body.project-mode #main-canvas { cursor: none; }
-
-    /* ── Global controls pinned at bottom ── */
-    .global-controls {
-      border-top: 1px solid var(--sidebar-border);
-      margin-top: auto;
-      flex-shrink: 0;
-    }
+    /* info badge */
+    .info-badge{background:rgba(79,163,255,.12);border:1px solid rgba(79,163,255,.3);
+      border-radius:4px;padding:5px 8px;font-size:11px;color:var(--accent);margin-bottom:6px}
   </style>
 </head>
 <body>
 <div id="app">
 
-  <!-- ══════════════ SIDEBAR ══════════════ -->
+  <!-- ══ SIDEBAR ══ -->
   <aside id="sidebar">
     <div class="mode-tabs">
       <button class="mode-tab active" data-mode="calibrate">Calibrate</button>
@@ -351,12 +195,41 @@
     <div id="panel-calibrate" class="mode-panel">
 
       <div class="section">
-        <div class="section-title">Grid</div>
+        <div class="st">Projection Setup</div>
+        <div class="row">
+          <label>Mat / Board</label>
+          <select id="board-preset" style="flex:1"></select>
+        </div>
+        <div id="board-custom" class="row hidden">
+          <input type="number" id="board-w" min="1" step="0.5" value="24" style="width:50px">
+          <span style="color:var(--tx-dim)">×</span>
+          <input type="number" id="board-h" min="1" step="0.5" value="36" style="width:50px">
+          <select id="board-unit">
+            <option value="in">in</option>
+            <option value="cm">cm</option>
+          </select>
+        </div>
+        <div class="row">
+          <label>Projector</label>
+          <select id="proj-preset" style="flex:1"></select>
+        </div>
+        <div id="proj-custom" class="row hidden">
+          <input type="number" id="proj-w" min="1" value="1920" style="width:54px">
+          <span style="color:var(--tx-dim)">×</span>
+          <input type="number" id="proj-h" min="1" value="1080" style="width:54px">
+          <span style="color:var(--tx-dim);font-size:10px">px</span>
+        </div>
+        <div class="info-badge" id="setup-info">Select mat size to begin.</div>
+        <button class="full" id="btn-apply-setup">Apply Setup → Set Corners + Scale</button>
+      </div>
+
+      <div class="section">
+        <div class="st">Grid</div>
         <div class="row">
           <label>Unit</label>
-          <div class="btn-group">
-            <button id="unit-inches" class="small active">inches</button>
-            <button id="unit-cm" class="small">cm</button>
+          <div class="bgrp">
+            <button id="unit-in" class="sm active">inches</button>
+            <button id="unit-cm" class="sm">cm</button>
           </div>
         </div>
         <div class="row">
@@ -367,35 +240,32 @@
             <option value="2">2</option>
           </select>
         </div>
-        <div class="row">
-          <label>Color</label>
-          <input type="color" id="grid-color" value="#00cc88">
-        </div>
+        <div class="row"><label>Color</label><input type="color" id="grid-color" value="#00cc88"></div>
         <div class="row">
           <label>Opacity</label>
           <input type="range" id="grid-opacity" min="0" max="1" step="0.05" value="0.7">
-          <span class="val-label" id="grid-opacity-val">70%</span>
+          <span class="vl" id="grid-opacity-val">70%</span>
         </div>
         <div class="row">
           <label>Weight</label>
           <input type="range" id="grid-weight" min="0.5" max="4" step="0.5" value="1">
-          <span class="val-label" id="grid-weight-val">1px</span>
+          <span class="vl" id="grid-weight-val">1px</span>
         </div>
       </div>
 
       <div class="section">
-        <div class="section-title">Corner Warping</div>
+        <div class="st">Corner Warping</div>
         <div class="row">
           <label>Mode</label>
-          <div class="btn-group">
-            <button id="corner-drag-mode" class="small active">Drag</button>
-            <button id="corner-float-mode" class="small">Float</button>
+          <div class="bgrp">
+            <button id="corner-drag-mode" class="sm active">Drag</button>
+            <button id="corner-float-mode" class="sm">Float</button>
           </div>
         </div>
         <div id="float-mode-info" class="hidden">
-          <div class="hint">Double-click a corner to float it. Single-click canvas to lock.</div>
-          <div class="section-subtitle">Cursor Assist</div>
-          <div class="tool-row">
+          <div class="hint">Double-click a corner handle to float it. Single-click canvas to lock.</div>
+          <div class="ss">Cursor Assist</div>
+          <div style="display:flex;flex-wrap:wrap;gap:4px;margin-bottom:6px">
             <button class="tool-btn" id="sb-loupe">Loupe</button>
             <button class="tool-btn" id="sb-snap">Snap</button>
             <button class="tool-btn" id="sb-crosshair">⊕ Crosshair</button>
@@ -405,59 +275,63 @@
       </div>
 
       <div class="section">
-        <div class="section-title">Scale Reference</div>
-        <div class="hint" id="scale-hint">Click two points on the canvas to set real-world scale.</div>
-        <div id="scale-distance-row" class="row hidden">
+        <div class="st">Scale Verify</div>
+        <div class="hint" id="scale-hint">Click two points to verify real-world scale.</div>
+        <div id="scale-dist-row" class="row hidden">
           <label>Distance</label>
           <input type="number" id="scale-distance" min="0.01" step="0.1" value="1">
           <span id="scale-unit-lbl">in</span>
         </div>
-        <div id="scale-action-row" class="row hidden">
+        <div id="scale-act-row" class="row hidden">
           <button id="btn-lock-scale">Lock Scale</button>
           <button id="btn-clear-scale">Clear</button>
         </div>
-        <div id="scale-locked-info" class="hint success hidden"></div>
-        <div id="btn-pick-scale-row" class="row">
-          <button id="btn-pick-scale" class="small">Pick Points</button>
+        <div id="scale-locked-info" class="hint ok hidden"></div>
+        <div class="row" id="btn-pick-row">
+          <button id="btn-pick-scale" class="sm">Pick Points</button>
         </div>
       </div>
 
       <div class="section">
-        <button class="btn-full danger" id="btn-reset-cal">Reset Calibration</button>
+        <button class="full danger" id="btn-reset-cal">Reset Calibration</button>
       </div>
 
-    </div><!-- /panel-calibrate -->
+    </div><!-- /calibrate panel -->
 
     <!-- ── PATTERN PANEL ── -->
     <div id="panel-pattern" class="mode-panel hidden">
 
       <div class="section">
-        <div class="section-title">Pattern File</div>
+        <div class="st">Pattern File</div>
         <label class="file-drop" id="pdf-drop-label">
           <input type="file" id="pdf-input" accept=".pdf" hidden>
           <span id="pdf-label-text">Drop PDF or click to upload</span>
         </label>
         <div id="page-nav" class="row hidden">
-          <button id="btn-prev-page" class="small">‹ Prev</button>
-          <span id="page-info" style="flex:1;text-align:center;color:var(--text-dim)">Page 1 / 1</span>
-          <button id="btn-next-page" class="small">Next ›</button>
+          <button id="btn-prev-page" class="sm">‹</button>
+          <span id="page-info" style="flex:1;text-align:center;color:var(--tx-dim)">1 / 1</span>
+          <button id="btn-next-page" class="sm">›</button>
+        </div>
+        <div id="asm-summary" class="hidden">
+          <div class="info-badge" id="asm-summary-text"></div>
+          <button class="full" id="btn-open-assembly">✦ Edit Assembly Layout</button>
         </div>
       </div>
 
       <div class="section">
-        <div class="section-title">Pattern Scale</div>
+        <div class="st">Pattern Scale</div>
         <div class="hint" id="ref-sq-hint">Click two corners of the pattern's printed reference square.</div>
-        <div id="ref-sq-active-row" class="row hidden">
-          <button id="btn-pick-ref-sq" class="small active">Picking…</button>
-          <button id="btn-cancel-ref-sq" class="small">Cancel</button>
+        <div id="ref-sq-idle" class="row">
+          <button id="btn-start-ref-sq" class="sm">Pick Reference Square</button>
         </div>
-        <div id="ref-sq-idle-row" class="row">
-          <button id="btn-start-ref-sq" class="small">Pick Reference Square</button>
+        <div id="ref-sq-active" class="row hidden">
+          <button id="btn-pick-ref-sq" class="sm active">Picking…</button>
+          <button id="btn-cancel-ref-sq" class="sm">Cancel</button>
         </div>
-        <div id="ref-sq-controls" class="hidden">
+        <div id="ref-sq-ctrls" class="hidden">
           <div class="row">
             <label>Size</label>
-            <input type="number" id="ref-sq-size" min="0.01" step="0.1" value="1">
+            <input type="number" id="ref-sq-size" min="0.01" step="0.1" value="2">
             <span id="ref-sq-unit-lbl">in</span>
           </div>
           <div class="row">
@@ -468,93 +342,140 @@
       </div>
 
       <div class="section">
-        <div class="section-title">Transform</div>
+        <div class="st">Transform</div>
         <div class="row">
-          <label>X</label>
-          <input type="number" id="pat-x" value="0" style="width:56px">
-          <label>Y</label>
-          <input type="number" id="pat-y" value="0" style="width:56px">
-          <button id="btn-center-pat" class="small">Center</button>
+          <label>X / Y</label>
+          <input type="number" id="pat-x" value="0" style="width:52px">
+          <input type="number" id="pat-y" value="0" style="width:52px">
+          <button id="btn-center-pat" class="sm">Center</button>
         </div>
         <div class="row">
           <label>Rotation</label>
-          <input type="range" id="pat-rot-slider" min="-180" max="180" step="1" value="0">
-          <input type="number" id="pat-rot-num" min="-180" max="180" step="1" value="0" style="width:48px">°
+          <input type="range" id="pat-rot" min="-180" max="180" step="1" value="0">
+          <input type="number" id="pat-rot-num" min="-180" max="180" value="0" style="width:42px">°
         </div>
         <div class="row">
           <label>Scale</label>
-          <input type="range" id="pat-scale-slider" min="0.1" max="4" step="0.01" value="1">
-          <span class="val-label" id="pat-scale-val">100%</span>
+          <input type="range" id="pat-scale" min="0.05" max="4" step="0.01" value="1">
+          <span class="vl" id="pat-scale-val">100%</span>
         </div>
         <div class="row">
           <label>Opacity</label>
-          <input type="range" id="pat-opacity-slider" min="0" max="1" step="0.05" value="1">
-          <span class="val-label" id="pat-opacity-val">100%</span>
+          <input type="range" id="pat-opacity" min="0" max="1" step="0.05" value="1">
+          <span class="vl" id="pat-opacity-val">100%</span>
         </div>
         <div class="row">
-          <button id="btn-reset-transform" class="small">Reset Transform</button>
+          <button id="btn-reset-xform" class="sm">Reset Transform</button>
         </div>
       </div>
 
       <div class="section">
-        <div class="section-title">Sizes</div>
-        <div id="sizes-panel">
-          <div class="hint">Load a PDF to detect size lines.</div>
-        </div>
+        <div class="st">Sizes</div>
+        <div id="sizes-panel"><div class="hint">Load a PDF to detect size lines.</div></div>
       </div>
 
       <div class="section">
-        <div class="section-title">Line Style</div>
-        <div class="row">
-          <label>Line Color</label>
-          <input type="color" id="line-color" value="#000000">
-        </div>
-        <div class="row">
-          <label>Highlight</label>
-          <input type="color" id="highlight-color" value="#ff2222">
-        </div>
+        <div class="st">Line Style</div>
+        <div class="row"><label>Line Color</label><input type="color" id="line-color" value="#000000"></div>
+        <div class="row"><label>Highlight</label><input type="color" id="highlight-color" value="#ff2222"></div>
         <div class="row">
           <label>Weight</label>
-          <input type="range" id="line-weight-slider" min="0.5" max="5" step="0.5" value="1">
-          <span class="val-label" id="line-weight-val">1px</span>
+          <input type="range" id="line-weight" min="0.5" max="5" step="0.5" value="1">
+          <span class="vl" id="line-weight-val">1px</span>
         </div>
       </div>
 
-    </div><!-- /panel-pattern -->
+    </div><!-- /pattern panel -->
 
-    <!-- ── GLOBAL CONTROLS ── -->
-    <div class="section global-controls">
-      <button class="btn-full" id="btn-global-invert">⟳ Global Invert</button>
-      <button class="btn-full accent" id="btn-project-mode">▶ Project Mode</button>
+    <!-- ── GLOBAL ── -->
+    <div class="section global-ctrls">
+      <button class="full" id="btn-global-invert">⟳ Global Invert</button>
+      <button class="full accent" id="btn-project-mode">▶ Project Mode (P)</button>
     </div>
   </aside>
 
-  <!-- ══════════════ CANVAS AREA ══════════════ -->
+  <!-- ══ CANVAS AREA ══ -->
   <main id="canvas-area">
     <canvas id="main-canvas"></canvas>
     <canvas id="loupe-canvas" width="180" height="180"></canvas>
+    <div id="minimap"><canvas id="minimap-canvas"></canvas><span id="minimap-label">Overview</span></div>
 
     <div id="float-toolbar" class="hidden">
-      <span class="ft-label">Float</span>
-      <span class="ft-corner" id="ft-corner-name">TL</span>
+      <span class="ft-lbl">Float</span>
+      <span class="ft-cn" id="ft-corner-name">TL</span>
       <span class="ft-sep">|</span>
       <button class="tool-btn" id="ft-loupe">Loupe</button>
       <button class="tool-btn" id="ft-snap">Snap</button>
       <button class="tool-btn" id="ft-crosshair">⊕</button>
       <span class="ft-sep">|</span>
-      <button id="ft-cancel" class="small danger">Cancel</button>
+      <button id="ft-cancel" class="sm danger">Cancel</button>
     </div>
   </main>
 </div>
 
-<!-- Reset confirmation modal -->
-<div id="modal-reset" class="modal-overlay hidden">
-  <div class="modal">
+<!-- Reset modal -->
+<div id="modal-reset" class="modal-ov hidden">
+  <div class="modal-box">
     <div class="modal-title">Reset Calibration?</div>
-    <div class="modal-body">All corner positions and scale reference will be cleared. This cannot be undone.</div>
-    <div class="modal-actions">
+    <div class="modal-body">All corner positions and scale will be cleared.</div>
+    <div class="modal-acts">
       <button id="modal-cancel">Cancel</button>
       <button id="modal-confirm" class="danger">Reset</button>
+    </div>
+  </div>
+</div>
+
+<!-- Assembly modal -->
+<div id="modal-assembly" class="modal-ov hidden">
+  <div class="asm-wrap">
+    <div class="asm-head">
+      <div>
+        <div class="asm-head-title" id="asm-title">Pattern Assembly</div>
+        <div class="asm-head-sub" id="asm-sub">Arrange pages into the tiled pattern layout.</div>
+      </div>
+    </div>
+    <div class="asm-body">
+      <div class="asm-panel">
+        <div>
+          <div class="st">Layout</div>
+          <div class="row"><label>Columns</label>
+            <input type="number" id="asm-cols" min="1" max="30" value="6" style="width:50px">
+          </div>
+          <div class="row"><label>Rows</label>
+            <input type="number" id="asm-rows" min="1" max="30" value="7" style="width:50px">
+          </div>
+        </div>
+        <div>
+          <div class="st">Overlap Trim</div>
+          <div class="row">
+            <input type="range" id="asm-trim" min="0" max="1.5" step="0.05" value="0.5">
+            <span class="vl" id="asm-trim-val">0.5"</span>
+          </div>
+          <div class="hint">Inches trimmed from each page edge when tiling. Removes the overlap/registration margin.</div>
+        </div>
+        <div>
+          <div class="st">Pages</div>
+          <div class="hint" id="asm-page-count"></div>
+          <button class="full sm" id="btn-asm-include-all">Include All</button>
+          <button class="full sm" id="btn-asm-exclude-first">Exclude Page 1–2</button>
+        </div>
+        <div>
+          <div class="st">Assembled Size</div>
+          <div class="hint" id="asm-size-info"></div>
+        </div>
+        <div class="asm-progress hidden" id="asm-progress-wrap">
+          <div class="hint" id="asm-progress-text">Rendering…</div>
+          <div class="asm-progress"><div class="asm-progress-bar" id="asm-progress-bar"></div></div>
+        </div>
+      </div>
+      <div class="asm-grid-area">
+        <div class="asm-grid" id="asm-grid"></div>
+      </div>
+    </div>
+    <div class="asm-foot">
+      <div class="asm-foot-info" id="asm-foot-info">Drag pages to reorder · Click × to exclude</div>
+      <button id="btn-asm-cancel">Cancel</button>
+      <button id="btn-asm-assemble" class="accent">Assemble Pattern</button>
     </div>
   </div>
 </div>
@@ -562,1473 +483,1371 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 <script>
 'use strict';
-
-// ═══════════════════════════════════════════════════════════════
-// PDF.js INIT
-// ═══════════════════════════════════════════════════════════════
 const pdfjsLib = window['pdfjs-dist/build/pdf'];
 pdfjsLib.GlobalWorkerOptions.workerSrc =
   'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
 
-// ═══════════════════════════════════════════════════════════════
+// ═══════════════════════════════════════════════════════════
+// CONSTANTS
+// ═══════════════════════════════════════════════════════════
+const BOARD_PRESETS = [
+  { label:'9" × 12"',   w:9,   h:12,  unit:'in' },
+  { label:'12" × 18"',  w:12,  h:18,  unit:'in' },
+  { label:'18" × 24"',  w:18,  h:24,  unit:'in' },
+  { label:'24" × 36"',  w:24,  h:36,  unit:'in' },
+  { label:'36" × 48"',  w:36,  h:48,  unit:'in' },
+  { label:'45" × 60"',  w:45,  h:60,  unit:'in' },
+  { label:'48" × 72"',  w:48,  h:72,  unit:'in' },
+  { label:'A1 (23.4×33.1")', w:23.4, h:33.1, unit:'in' },
+  { label:'Custom…',    w:0,   h:0,   unit:'in' },
+];
+const PROJ_PRESETS = [
+  { label:'Full HD 1920×1080',  w:1920, h:1080 },
+  { label:'WUXGA 1920×1200',    w:1920, h:1200 },
+  { label:'WXGA 1280×800',      w:1280, h:800  },
+  { label:'XGA 1024×768',       w:1024, h:768  },
+  { label:'4K 3840×2160',       w:3840, h:2160 },
+  { label:'Use current window', w:0,    h:0    },
+  { label:'Custom…',            w:0,    h:0    },
+];
+const CORNER_NAMES  = ['TL','TR','BR','BL'];
+const CORNER_COLORS = ['#4fa3ff','#ff9944','#ff4fa3','#44d988'];
+const CHR = 11; // corner handle radius
+
+// ═══════════════════════════════════════════════════════════
 // STATE
-// ═══════════════════════════════════════════════════════════════
+// ═══════════════════════════════════════════════════════════
 const S = {
-  appMode: 'calibrate',   // 'calibrate' | 'pattern'
-  projectMode: false,
+  appMode:'calibrate', projectMode:false,
+  canvasW:0, canvasH:0, dpr:1,
 
-  canvasW: 0, canvasH: 0,
-  dpr: 1,
+  board:{ w:24, h:36, unit:'in' },
+  projector:{ w:1920, h:1080 },
 
-  grid: {
-    unit: 'inches',       // 'inches' | 'cm'
-    cellSize: 1,
-    color: '#00cc88',
-    opacity: 0.7,
-    lineWeight: 1,
+  grid:{ unit:'in', cellSize:1, color:'#00cc88', opacity:.7, lineWeight:1 },
+  corners:[{x:0,y:0},{x:0,y:0},{x:0,y:0},{x:0,y:0}],
+  cornersInit:false,
+
+  cornerMode:'drag',
+  floatTools:{ loupe:false, snap:false, crosshair:false },
+  floatingIdx:-1, draggingIdx:-1,
+
+  scale:{ points:[], realDist:1, ppu:80, locked:false, picking:false },
+
+  pattern:{
+    pdfDoc:null, page:null, pageNum:1, numPages:0, viewport:null,
+    groups:[], loadingGroups:false,
+    transform:{ x:0, y:0, rotation:0, scale:1, opacity:1 },
+    dragging:false, dragStartMouse:null, dragStartPos:null,
+    lineColor:'#000000', highlightColor:'#ff2222', lineWeight:1,
+    globalInvert:false,
+    refSquare:{ picking:false, points:[] },
+    assembled:null,   // OffscreenCanvas / HTMLCanvasElement of the tiled pattern
+    assembledW:0, assembledH:0,
+    isTiled:false,
   },
 
-  corners: [              // [TL, TR, BR, BL]
-    { x: 0, y: 0 },
-    { x: 0, y: 0 },
-    { x: 0, y: 0 },
-    { x: 0, y: 0 },
-  ],
-  cornersInit: false,
-
-  cornerMode: 'drag',     // 'drag' | 'float'
-  floatTools: { loupe: false, snap: false, crosshair: false },
-  floatingIdx: -1,        // -1 = none floating
-  draggingIdx: -1,
-
-  scale: {
-    points: [],           // [{x,y}] 0,1,2 points
-    realDist: 1,
-    ppu: 80,              // pixels per unit (default)
-    locked: false,
-    picking: false,
+  assembly:{
+    open:false,
+    cols:6, rows:7,
+    overlapTrim:0.5,   // inches per page edge
+    layout:[],         // [{pageNum, excluded}]
+    thumbs:new Map(),  // pageNum → canvas
+    thumbW:80, thumbH:106,
+    dragSrc:-1,
   },
 
-  pattern: {
-    pdfDoc: null,
-    page: null,
-    pageNum: 1,
-    numPages: 0,
-    viewport: null,
-    groups: [],           // { id, dashKey, dash, label, vis:'show'|'ghost'|'hide', canvas, color, weight, active }
-    canvas: null,         // full render canvas (base)
-    loadingGroups: false,
-
-    transform: { x: 0, y: 0, rotation: 0, scale: 1, opacity: 1 },
-    dragging: false,
-    dragStartMouse: null,
-    dragStartPos: null,
-
-    lineColor: '#000000',
-    highlightColor: '#ff2222',
-    lineWeight: 1,
-    globalInvert: false,
-
-    refSquare: {
-      picking: false,
-      points: [],         // 0,1,2 points
-      realSize: 1,
-    },
-  },
-
-  cursor: { x: 0, y: 0 },
-  globalInvert: false,
+  cursor:{x:0,y:0},
+  globalInvert:false,
 };
 
-// ═══════════════════════════════════════════════════════════════
-// DOM REFS
-// ═══════════════════════════════════════════════════════════════
+// ═══════════════════════════════════════════════════════════
+// DOM
+// ═══════════════════════════════════════════════════════════
 const E = {
-  app:          document.getElementById('app'),
-  sidebar:      document.getElementById('sidebar'),
-  canvasArea:   document.getElementById('canvas-area'),
-  mainCanvas:   document.getElementById('main-canvas'),
-  loupeCanvas:  document.getElementById('loupe-canvas'),
-  floatToolbar: document.getElementById('float-toolbar'),
-  ftCornerName: document.getElementById('ft-corner-name'),
-  ftLoupe:      document.getElementById('ft-loupe'),
-  ftSnap:       document.getElementById('ft-snap'),
-  ftCrosshair:  document.getElementById('ft-crosshair'),
-  ftCancel:     document.getElementById('ft-cancel'),
-  floatModeInfo:document.getElementById('float-mode-info'),
-  sbLoupe:      document.getElementById('sb-loupe'),
-  sbSnap:       document.getElementById('sb-snap'),
-  sbCrosshair:  document.getElementById('sb-crosshair'),
-  sizesPanel:   document.getElementById('sizes-panel'),
-  pageNav:      document.getElementById('page-nav'),
-  pageInfo:     document.getElementById('page-info'),
-  pdfLabel:     document.getElementById('pdf-label-text'),
-  scaleHint:    document.getElementById('scale-hint'),
-  scaleDistRow: document.getElementById('scale-distance-row'),
-  scaleActRow:  document.getElementById('scale-action-row'),
-  scaleLockedInfo: document.getElementById('scale-locked-info'),
-  scalePickRow: document.getElementById('btn-pick-scale-row'),
-  refSqHint:    document.getElementById('ref-sq-hint'),
-  refSqActiveRow: document.getElementById('ref-sq-active-row'),
-  refSqIdleRow: document.getElementById('ref-sq-idle-row'),
-  refSqControls: document.getElementById('ref-sq-controls'),
+  sidebar:       document.getElementById('sidebar'),
+  canvasArea:    document.getElementById('canvas-area'),
+  mainCanvas:    document.getElementById('main-canvas'),
+  loupeCanvas:   document.getElementById('loupe-canvas'),
+  minimapEl:     document.getElementById('minimap'),
+  minimapCanvas: document.getElementById('minimap-canvas'),
+  floatToolbar:  document.getElementById('float-toolbar'),
+  ftCornerName:  document.getElementById('ft-corner-name'),
+  ftLoupe:       document.getElementById('ft-loupe'),
+  ftSnap:        document.getElementById('ft-snap'),
+  ftCrosshair:   document.getElementById('ft-crosshair'),
+  ftCancel:      document.getElementById('ft-cancel'),
+  floatModeInfo: document.getElementById('float-mode-info'),
+  sbLoupe:       document.getElementById('sb-loupe'),
+  sbSnap:        document.getElementById('sb-snap'),
+  sbCrosshair:   document.getElementById('sb-crosshair'),
+  sizesPanel:    document.getElementById('sizes-panel'),
+  pageNav:       document.getElementById('page-nav'),
+  pageInfo:      document.getElementById('page-info'),
+  pdfLabel:      document.getElementById('pdf-label-text'),
+  setupInfo:     document.getElementById('setup-info'),
+  scaleHint:     document.getElementById('scale-hint'),
+  scaleDistRow:  document.getElementById('scale-dist-row'),
+  scaleActRow:   document.getElementById('scale-act-row'),
+  scaleLockedInfo:document.getElementById('scale-locked-info'),
+  scalePickRow:  document.getElementById('btn-pick-row'),
+  refSqHint:     document.getElementById('ref-sq-hint'),
+  refSqIdle:     document.getElementById('ref-sq-idle'),
+  refSqActive:   document.getElementById('ref-sq-active'),
+  refSqCtrls:    document.getElementById('ref-sq-ctrls'),
+  asmSummary:    document.getElementById('asm-summary'),
+  asmSummaryTxt: document.getElementById('asm-summary-text'),
+  boardCustom:   document.getElementById('board-custom'),
+  projCustom:    document.getElementById('proj-custom'),
+  asmCols:       document.getElementById('asm-cols'),
+  asmRows:       document.getElementById('asm-rows'),
+  asmTrim:       document.getElementById('asm-trim'),
+  asmTrimVal:    document.getElementById('asm-trim-val'),
+  asmGrid:       document.getElementById('asm-grid'),
+  asmPageCount:  document.getElementById('asm-page-count'),
+  asmSizeInfo:   document.getElementById('asm-size-info'),
+  asmProgressWrap:document.getElementById('asm-progress-wrap'),
+  asmProgressBar: document.getElementById('asm-progress-bar'),
+  asmProgressTxt: document.getElementById('asm-progress-text'),
+  asmFootInfo:   document.getElementById('asm-foot-info'),
 };
 
 const ctx = E.mainCanvas.getContext('2d');
 const loupeCtx = E.loupeCanvas.getContext('2d');
+const mmCtx = E.minimapCanvas.getContext('2d');
 
-// ═══════════════════════════════════════════════════════════════
-// UTILITIES
-// ═══════════════════════════════════════════════════════════════
-function dist(a, b) {
-  return Math.hypot(b.x - a.x, b.y - a.y);
-}
+// ═══════════════════════════════════════════════════════════
+// UTILS
+// ═══════════════════════════════════════════════════════════
+const dist = (a,b) => Math.hypot(b.x-a.x,b.y-a.y);
+const clamp = (v,lo,hi) => Math.max(lo,Math.min(hi,v));
+const lerp = (a,b,t) => a+(b-a)*t;
+const invertHex = hex => '#'+(0xFFFFFF^parseInt(hex.slice(1),16)).toString(16).padStart(6,'0');
 
-function clamp(v, lo, hi) { return Math.max(lo, Math.min(hi, v)); }
-
-function lerp(a, b, t) { return a + (b - a) * t; }
-
-function bilinear(u, v) {
-  const [TL, TR, BR, BL] = S.corners;
-  return {
-    x: (1-u)*(1-v)*TL.x + u*(1-v)*TR.x + u*v*BR.x + (1-u)*v*BL.x,
-    y: (1-u)*(1-v)*TL.y + u*(1-v)*TR.y + u*v*BR.y + (1-u)*v*BL.y,
+function bilinear(u,v){
+  const[TL,TR,BR,BL]=S.corners;
+  return{
+    x:(1-u)*(1-v)*TL.x+u*(1-v)*TR.x+u*v*BR.x+(1-u)*v*BL.x,
+    y:(1-u)*(1-v)*TL.y+u*(1-v)*TR.y+u*v*BR.y+(1-u)*v*BL.y,
   };
 }
 
-const CORNER_NAMES = ['TL', 'TR', 'BR', 'BL'];
-const CORNER_COLORS = ['#4fa3ff', '#ff9944', '#ff4fa3', '#44d988'];
-const CORNER_HANDLE_R = 10;
-
-// ═══════════════════════════════════════════════════════════════
-// CANVAS SETUP & RESIZE
-// ═══════════════════════════════════════════════════════════════
-function setupCanvas() {
-  S.dpr = window.devicePixelRatio || 1;
-  const rect = E.canvasArea.getBoundingClientRect();
-  S.canvasW = rect.width;
-  S.canvasH = rect.height;
-
-  E.mainCanvas.width  = Math.floor(rect.width  * S.dpr);
-  E.mainCanvas.height = Math.floor(rect.height * S.dpr);
-  E.mainCanvas.style.width  = rect.width  + 'px';
-  E.mainCanvas.style.height = rect.height + 'px';
-
-  ctx.setTransform(S.dpr, 0, 0, S.dpr, 0, 0);
-
-  if (!S.cornersInit) {
-    initCorners();
-    S.cornersInit = true;
-  }
+// ═══════════════════════════════════════════════════════════
+// CANVAS / RESIZE
+// ═══════════════════════════════════════════════════════════
+function setupCanvas(){
+  S.dpr = window.devicePixelRatio||1;
+  const r = E.canvasArea.getBoundingClientRect();
+  S.canvasW = r.width; S.canvasH = r.height;
+  E.mainCanvas.width  = Math.floor(r.width *S.dpr);
+  E.mainCanvas.height = Math.floor(r.height*S.dpr);
+  E.mainCanvas.style.width  = r.width+'px';
+  E.mainCanvas.style.height = r.height+'px';
+  ctx.setTransform(S.dpr,0,0,S.dpr,0,0);
+  if(!S.cornersInit){ initCorners(); S.cornersInit=true; }
 }
 
-function initCorners() {
-  const pad = Math.min(S.canvasW, S.canvasH) * 0.1;
-  S.corners = [
-    { x: pad,              y: pad },
-    { x: S.canvasW - pad,  y: pad },
-    { x: S.canvasW - pad,  y: S.canvasH - pad },
-    { x: pad,              y: S.canvasH - pad },
+function initCorners(){
+  const pad=Math.min(S.canvasW,S.canvasH)*0.1;
+  S.corners=[
+    {x:pad,           y:pad},
+    {x:S.canvasW-pad, y:pad},
+    {x:S.canvasW-pad, y:S.canvasH-pad},
+    {x:pad,           y:S.canvasH-pad},
   ];
 }
 
-window.addEventListener('resize', () => {
-  const hadCorners = S.cornersInit;
-  const oldW = S.canvasW, oldH = S.canvasH;
-  S.cornersInit = false;
-  setupCanvas();
-  if (hadCorners && (oldW > 0)) {
-    const sx = S.canvasW / oldW, sy = S.canvasH / oldH;
-    for (const c of S.corners) { c.x *= sx; c.y *= sy; }
-  }
+window.addEventListener('resize',()=>{
+  const ox=S.canvasW,oy=S.canvasH,had=S.cornersInit;
+  S.cornersInit=false; setupCanvas();
+  if(had&&ox>0){ const sx=S.canvasW/ox,sy=S.canvasH/oy;
+    S.corners.forEach(c=>{c.x*=sx;c.y*=sy;}); }
 });
 
-// ═══════════════════════════════════════════════════════════════
-// GRID DRAWING
-// ═══════════════════════════════════════════════════════════════
-function getGridDims() {
-  const [TL, TR, BR, BL] = S.corners;
-  const topW  = dist(TL, TR);
-  const botW  = dist(BL, BR);
-  const leftH = dist(TL, BL);
-  const rightH= dist(TR, BR);
-  const avgW  = (topW + botW) / 2;
-  const avgH  = (leftH + rightH) / 2;
-  const physW = avgW / S.scale.ppu;
-  const physH = avgH / S.scale.ppu;
-  const nCols = Math.max(2, Math.ceil(physW / S.grid.cellSize));
-  const nRows = Math.max(2, Math.ceil(physH / S.grid.cellSize));
-  return { nCols, nRows };
+// ═══════════════════════════════════════════════════════════
+// BOARD / PROJECTOR SETUP
+// ═══════════════════════════════════════════════════════════
+function populatePresets(){
+  const bp=document.getElementById('board-preset');
+  BOARD_PRESETS.forEach((p,i)=>{ const o=document.createElement('option');o.value=i;o.textContent=p.label;bp.appendChild(o); });
+  bp.value=3; // 24×36 default
+
+  const pp=document.getElementById('proj-preset');
+  PROJ_PRESETS.forEach((p,i)=>{ const o=document.createElement('option');o.value=i;o.textContent=p.label;pp.appendChild(o); });
+  pp.value=0; // 1920×1080 default
 }
 
-function drawGrid() {
-  const { color, opacity, lineWeight } = S.grid;
-  const [TL, TR, BR, BL] = S.corners;
-  const { nCols, nRows } = getGridDims();
+function onBoardPresetChange(){
+  const idx=parseInt(document.getElementById('board-preset').value);
+  const p=BOARD_PRESETS[idx];
+  E.boardCustom.classList.toggle('hidden',p.w!==0);
+  if(p.w>0){
+    S.board.w=p.w; S.board.h=p.h; S.board.unit=p.unit;
+    document.getElementById('board-w').value=p.w;
+    document.getElementById('board-h').value=p.h;
+  }
+  updateSetupInfo();
+}
 
+function onProjPresetChange(){
+  const idx=parseInt(document.getElementById('proj-preset').value);
+  const p=PROJ_PRESETS[idx];
+  const isCustom=PROJ_PRESETS[idx].label==='Custom…';
+  E.projCustom.classList.toggle('hidden',!isCustom&&p.w!==0);
+  if(p.w>0){ S.projector.w=p.w; S.projector.h=p.h; }
+  else{ S.projector.w=S.canvasW; S.projector.h=S.canvasH; }
+  updateSetupInfo();
+}
+
+function updateSetupInfo(){
+  const bw=parseFloat(document.getElementById('board-w').value)||S.board.w;
+  const bh=parseFloat(document.getElementById('board-h').value)||S.board.h;
+  const bu=document.getElementById('board-unit')?document.getElementById('board-unit').value:S.board.unit;
+  const pw=S.projector.w||S.canvasW;
+  const ph=S.projector.h||S.canvasH;
+  const ppuX=(pw/bw).toFixed(1), ppuY=(ph/bh).toFixed(1);
+  const ppu=Math.min(pw/bw,ph/bh).toFixed(1);
+  E.setupInfo.textContent=`${pw}×${ph}px ÷ ${bw}×${bh}${bu} → ${ppu} px/${bu}`;
+}
+
+function applyBoardSetup(){
+  const bw=parseFloat(document.getElementById('board-w').value)||S.board.w;
+  const bh=parseFloat(document.getElementById('board-h').value)||S.board.h;
+  const bu=S.board.unit;
+  const pw=S.projector.w||S.canvasW;
+  const ph=S.projector.h||S.canvasH;
+
+  S.board.w=bw; S.board.h=bh;
+  // Compute ppu so the board fits the projection (maintain aspect)
+  const ppuX=pw/bw, ppuY=ph/bh;
+  S.scale.ppu=Math.min(ppuX,ppuY);
+
+  // Center the board in the current canvas
+  const boardPxW=bw*S.scale.ppu, boardPxH=bh*S.scale.ppu;
+  const ox=(S.canvasW-boardPxW)/2, oy=(S.canvasH-boardPxH)/2;
+  S.corners=[
+    {x:ox,         y:oy},
+    {x:ox+boardPxW,y:oy},
+    {x:ox+boardPxW,y:oy+boardPxH},
+    {x:ox,         y:oy+boardPxH},
+  ];
+  S.cornersInit=true;
+  updateSetupInfo();
+  saveState();
+}
+
+// ═══════════════════════════════════════════════════════════
+// GRID
+// ═══════════════════════════════════════════════════════════
+function getGridDims(){
+  const[TL,TR,BR,BL]=S.corners;
+  const avgW=(dist(TL,TR)+dist(BL,BR))/2;
+  const avgH=(dist(TL,BL)+dist(TR,BR))/2;
+  return{
+    nCols:Math.max(2,Math.ceil(avgW/S.scale.ppu/S.grid.cellSize)),
+    nRows:Math.max(2,Math.ceil(avgH/S.scale.ppu/S.grid.cellSize)),
+  };
+}
+
+function drawGrid(){
+  const{color,opacity,lineWeight}=S.grid;
+  const[TL,TR,BR,BL]=S.corners;
+  const{nCols,nRows}=getGridDims();
   ctx.save();
-  ctx.globalAlpha = opacity;
-  ctx.strokeStyle = S.globalInvert ? invertColor(color) : color;
-  ctx.lineWidth = lineWeight;
-  ctx.lineCap = 'round';
-
-  // Horizontal lines: for each row r, the line goes from left edge (u=0) to right edge (u=1) at v=r/nRows
-  for (let r = 0; r <= nRows; r++) {
-    const v = r / nRows;
-    const sx = lerp(TL.x, BL.x, v), sy = lerp(TL.y, BL.y, v);
-    const ex = lerp(TR.x, BR.x, v), ey = lerp(TR.y, BR.y, v);
+  ctx.globalAlpha=opacity;
+  ctx.strokeStyle=S.globalInvert?invertHex(color):color;
+  ctx.lineWidth=lineWeight; ctx.lineCap='round';
+  for(let r=0;r<=nRows;r++){
+    const v=r/nRows;
     ctx.beginPath();
-    ctx.moveTo(sx, sy);
-    ctx.lineTo(ex, ey);
+    ctx.moveTo(lerp(TL.x,BL.x,v),lerp(TL.y,BL.y,v));
+    ctx.lineTo(lerp(TR.x,BR.x,v),lerp(TR.y,BR.y,v));
     ctx.stroke();
   }
-
-  // Vertical lines: for each col c, from top edge (v=0) to bottom edge (v=1) at u=c/nCols
-  for (let c = 0; c <= nCols; c++) {
-    const u = c / nCols;
-    const sx = lerp(TL.x, TR.x, u), sy = lerp(TL.y, TR.y, u);
-    const ex = lerp(BL.x, BR.x, u), ey = lerp(BL.y, BR.y, u);
+  for(let c=0;c<=nCols;c++){
+    const u=c/nCols;
     ctx.beginPath();
-    ctx.moveTo(sx, sy);
-    ctx.lineTo(ex, ey);
+    ctx.moveTo(lerp(TL.x,TR.x,u),lerp(TL.y,TR.y,u));
+    ctx.lineTo(lerp(BL.x,BR.x,u),lerp(BL.y,BR.y,u));
     ctx.stroke();
   }
-
   ctx.restore();
 }
 
-function invertColor(hex) {
-  const c = parseInt(hex.slice(1), 16);
-  return '#' + (0xFFFFFF ^ c).toString(16).padStart(6, '0');
-}
-
-// ═══════════════════════════════════════════════════════════════
-// CORNER HANDLES
-// ═══════════════════════════════════════════════════════════════
-function drawCorners() {
-  for (let i = 0; i < 4; i++) {
-    const c = S.corners[i];
-    const isFloating = S.floatingIdx === i;
-    const isDragging = S.draggingIdx === i;
-    const col = CORNER_COLORS[i];
-
+// ═══════════════════════════════════════════════════════════
+// CORNERS
+// ═══════════════════════════════════════════════════════════
+function drawCorners(){
+  for(let i=0;i<4;i++){
+    const c=S.corners[i], col=CORNER_COLORS[i];
+    const floating=S.floatingIdx===i, dragging=S.draggingIdx===i;
     ctx.save();
-    ctx.strokeStyle = col;
-    ctx.fillStyle = col;
-    ctx.lineWidth = 2;
-    ctx.globalAlpha = isFloating ? 0.5 : 1;
-
-    if (isFloating) {
-      // Pulsing ring at cursor
-      ctx.strokeStyle = col;
-      ctx.lineWidth = 2;
-      ctx.setLineDash([4, 3]);
-      ctx.beginPath();
-      ctx.arc(c.x, c.y, CORNER_HANDLE_R + 4, 0, Math.PI * 2);
-      ctx.stroke();
+    if(floating){
+      ctx.strokeStyle=col; ctx.lineWidth=2; ctx.setLineDash([4,3]);
+      ctx.beginPath(); ctx.arc(c.x,c.y,CHR+5,0,Math.PI*2); ctx.stroke();
       ctx.setLineDash([]);
     }
-
-    // Fill circle
-    ctx.beginPath();
-    ctx.arc(c.x, c.y, CORNER_HANDLE_R, 0, Math.PI * 2);
-    ctx.globalAlpha = isDragging || isFloating ? 0.9 : 0.75;
-    ctx.fill();
-
-    // Label
-    ctx.globalAlpha = 1;
-    ctx.fillStyle = '#000';
-    ctx.font = `bold 9px sans-serif`;
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-    ctx.fillText(CORNER_NAMES[i], c.x, c.y);
-
+    ctx.globalAlpha=floating||dragging?.9:.75;
+    ctx.fillStyle=col;
+    ctx.beginPath(); ctx.arc(c.x,c.y,CHR,0,Math.PI*2); ctx.fill();
+    ctx.globalAlpha=1; ctx.fillStyle='#000';
+    ctx.font='bold 8px sans-serif'; ctx.textAlign='center'; ctx.textBaseline='middle';
+    ctx.fillText(CORNER_NAMES[i],c.x,c.y);
     ctx.restore();
   }
 }
 
-function hitTestCorner(x, y) {
-  for (let i = 0; i < 4; i++) {
-    if (dist({ x, y }, S.corners[i]) <= CORNER_HANDLE_R + 4) return i;
-  }
+function hitCorner(x,y){
+  for(let i=0;i<4;i++) if(dist({x,y},S.corners[i])<=CHR+5) return i;
   return -1;
 }
 
-// ═══════════════════════════════════════════════════════════════
-// SCALE REFERENCE DRAWING
-// ═══════════════════════════════════════════════════════════════
-function drawScaleRef() {
-  const pts = S.scale.points;
-  if (pts.length === 0) return;
-
-  ctx.save();
-  ctx.strokeStyle = '#ffb347';
-  ctx.fillStyle = '#ffb347';
-  ctx.lineWidth = 1.5;
-  ctx.setLineDash([4, 3]);
-
-  for (const p of pts) {
-    ctx.beginPath();
-    ctx.arc(p.x, p.y, 5, 0, Math.PI * 2);
-    ctx.fill();
+// ═══════════════════════════════════════════════════════════
+// SCALE REFERENCE / REF SQUARE OVERLAYS
+// ═══════════════════════════════════════════════════════════
+function drawScaleRef(){
+  const pts=S.scale.points; if(!pts.length) return;
+  ctx.save(); ctx.strokeStyle='#ffb347'; ctx.fillStyle='#ffb347';
+  ctx.lineWidth=1.5; ctx.setLineDash([4,3]);
+  pts.forEach(p=>{ ctx.beginPath(); ctx.arc(p.x,p.y,5,0,Math.PI*2); ctx.fill(); });
+  if(pts.length===2){
+    ctx.beginPath(); ctx.moveTo(pts[0].x,pts[0].y); ctx.lineTo(pts[1].x,pts[1].y); ctx.stroke();
+    const mx=(pts[0].x+pts[1].x)/2, my=(pts[0].y+pts[1].y)/2;
+    ctx.setLineDash([]); ctx.font='11px sans-serif'; ctx.textAlign='center'; ctx.textBaseline='bottom';
+    ctx.fillText(`${S.scale.realDist} ${S.grid.unit}`,mx,my-6);
   }
-
-  if (pts.length === 2) {
-    ctx.beginPath();
-    ctx.moveTo(pts[0].x, pts[0].y);
-    ctx.lineTo(pts[1].x, pts[1].y);
-    ctx.stroke();
-    // Midpoint label
-    const mx = (pts[0].x + pts[1].x) / 2;
-    const my = (pts[0].y + pts[1].y) / 2;
-    ctx.setLineDash([]);
-    ctx.fillStyle = '#ffb347';
-    ctx.font = '11px sans-serif';
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'bottom';
-    ctx.fillText(`${S.scale.realDist} ${S.grid.unit}`, mx, my - 6);
-  }
-
-  ctx.setLineDash([]);
-  ctx.restore();
+  ctx.setLineDash([]); ctx.restore();
 }
 
-// ═══════════════════════════════════════════════════════════════
-// REFERENCE SQUARE DRAWING (pattern mode)
-// ═══════════════════════════════════════════════════════════════
-function drawRefSquare() {
-  const pts = S.pattern.refSquare.points;
-  if (pts.length === 0) return;
-
-  ctx.save();
-  ctx.strokeStyle = '#cc44ff';
-  ctx.fillStyle = '#cc44ff';
-  ctx.lineWidth = 1.5;
-  ctx.setLineDash([4, 3]);
-
-  for (const p of pts) {
-    ctx.beginPath();
-    ctx.arc(p.x, p.y, 5, 0, Math.PI * 2);
-    ctx.fill();
+function drawRefSquare(){
+  const pts=S.pattern.refSquare.points; if(!pts.length) return;
+  ctx.save(); ctx.strokeStyle='#cc44ff'; ctx.fillStyle='#cc44ff';
+  ctx.lineWidth=1.5; ctx.setLineDash([4,3]);
+  pts.forEach(p=>{ ctx.beginPath(); ctx.arc(p.x,p.y,5,0,Math.PI*2); ctx.fill(); });
+  if(pts.length===2){
+    const[a,b]=pts;
+    ctx.beginPath(); ctx.rect(Math.min(a.x,b.x),Math.min(a.y,b.y),Math.abs(b.x-a.x),Math.abs(b.y-a.y)); ctx.stroke();
   }
-
-  if (pts.length === 2) {
-    // Draw a square from the two points
-    const [a, b] = pts;
-    ctx.beginPath();
-    ctx.rect(Math.min(a.x, b.x), Math.min(a.y, b.y),
-             Math.abs(b.x - a.x), Math.abs(b.y - a.y));
-    ctx.stroke();
-  }
-
-  ctx.setLineDash([]);
-  ctx.restore();
+  ctx.setLineDash([]); ctx.restore();
 }
 
-// ═══════════════════════════════════════════════════════════════
-// CROSSHAIR
-// ═══════════════════════════════════════════════════════════════
-function drawCrosshair() {
-  if (!S.floatTools.crosshair || S.floatingIdx === -1) return;
-  const { x, y } = S.cursor;
-
-  ctx.save();
-  ctx.strokeStyle = 'rgba(255,255,255,0.4)';
-  ctx.lineWidth = 1;
-  ctx.setLineDash([6, 4]);
-
-  ctx.beginPath();
-  ctx.moveTo(0, y);
-  ctx.lineTo(S.canvasW, y);
-  ctx.stroke();
-
-  ctx.beginPath();
-  ctx.moveTo(x, 0);
-  ctx.lineTo(x, S.canvasH);
-  ctx.stroke();
-
-  ctx.setLineDash([]);
-  ctx.restore();
+// ═══════════════════════════════════════════════════════════
+// CROSSHAIR + LOUPE
+// ═══════════════════════════════════════════════════════════
+function drawCrosshair(){
+  if(!S.floatTools.crosshair||S.floatingIdx===-1) return;
+  const{x,y}=S.cursor;
+  ctx.save(); ctx.strokeStyle='rgba(255,255,255,.4)'; ctx.lineWidth=1; ctx.setLineDash([6,4]);
+  ctx.beginPath(); ctx.moveTo(0,y); ctx.lineTo(S.canvasW,y); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(x,0); ctx.lineTo(x,S.canvasH); ctx.stroke();
+  ctx.setLineDash([]); ctx.restore();
 }
 
-// ═══════════════════════════════════════════════════════════════
-// LOUPE
-// ═══════════════════════════════════════════════════════════════
-let renderBuffer = null;
-
-function drawLoupe() {
-  if (!S.floatTools.loupe || S.floatingIdx === -1) {
-    E.loupeCanvas.style.display = 'none';
-    return;
-  }
-  E.loupeCanvas.style.display = 'block';
-
-  if (!renderBuffer) return;
-
-  const ZOOM = 4;
-  const LW = E.loupeCanvas.width;
-  const LH = E.loupeCanvas.height;
-  const srcW = LW / ZOOM;
-  const srcH = LH / ZOOM;
-  const { x, y } = S.cursor;
-
-  loupeCtx.clearRect(0, 0, LW, LH);
-  loupeCtx.fillStyle = '#000';
-  loupeCtx.fillRect(0, 0, LW, LH);
-
-  const sx = clamp(x - srcW / 2, 0, Math.max(0, S.canvasW - srcW));
-  const sy = clamp(y - srcH / 2, 0, Math.max(0, S.canvasH - srcH));
-
-  // Draw from render buffer (in logical coords) scaled to loupe
-  loupeCtx.drawImage(
-    renderBuffer,
-    sx * S.dpr, sy * S.dpr,
-    srcW * S.dpr, srcH * S.dpr,
-    0, 0, LW, LH
-  );
-
-  // Crosshair in loupe
-  loupeCtx.strokeStyle = 'rgba(255,80,80,0.8)';
-  loupeCtx.lineWidth = 1;
+let _loupeBuffer=null;
+function drawLoupe(){
+  if(!S.floatTools.loupe||S.floatingIdx===-1){ E.loupeCanvas.style.display='none'; return; }
+  E.loupeCanvas.style.display='block';
+  if(!_loupeBuffer) return;
+  const ZOOM=4,LW=180,LH=180,srcW=LW/ZOOM,srcH=LH/ZOOM;
+  const{x,y}=S.cursor;
+  const sx=clamp(x-srcW/2,0,Math.max(0,S.canvasW-srcW));
+  const sy=clamp(y-srcH/2,0,Math.max(0,S.canvasH-srcH));
+  loupeCtx.clearRect(0,0,LW,LH);
+  loupeCtx.fillStyle='#000'; loupeCtx.fillRect(0,0,LW,LH);
+  loupeCtx.drawImage(_loupeBuffer,sx*S.dpr,sy*S.dpr,srcW*S.dpr,srcH*S.dpr,0,0,LW,LH);
+  loupeCtx.strokeStyle='rgba(255,80,80,.8)'; loupeCtx.lineWidth=1;
   loupeCtx.beginPath();
-  loupeCtx.moveTo(LW / 2, 0); loupeCtx.lineTo(LW / 2, LH);
-  loupeCtx.moveTo(0, LH / 2); loupeCtx.lineTo(LW, LH / 2);
+  loupeCtx.moveTo(LW/2,0);loupeCtx.lineTo(LW/2,LH);
+  loupeCtx.moveTo(0,LH/2);loupeCtx.lineTo(LW,LH/2);
   loupeCtx.stroke();
-
-  // Border
-  loupeCtx.strokeStyle = 'rgba(255,255,255,0.3)';
-  loupeCtx.lineWidth = 1;
-  loupeCtx.strokeRect(0, 0, LW, LH);
 }
 
-// ═══════════════════════════════════════════════════════════════
+// ═══════════════════════════════════════════════════════════
+// MINIMAP
+// ═══════════════════════════════════════════════════════════
+function drawMinimap(){
+  const pat=S.pattern;
+  const src=pat.assembled||pat.groups[0]?.canvas;
+  const showMM=S.appMode==='pattern'&&src&&!S.projectMode;
+  E.minimapEl.style.display=showMM?'block':'none';
+  if(!showMM) return;
+
+  const srcW=pat.assembled?pat.assembledW:(pat.viewport?.width??800);
+  const srcH=pat.assembled?pat.assembledH:(pat.viewport?.height??1000);
+
+  const MM=156, sc=Math.min(MM/srcW,MM/srcH);
+  const mw=Math.round(srcW*sc), mh=Math.round(srcH*sc);
+
+  E.minimapCanvas.width=mw; E.minimapCanvas.height=mh;
+  E.minimapEl.style.height=mh+'px';
+  mmCtx.clearRect(0,0,mw,mh);
+  mmCtx.fillStyle='#1a1a1a'; mmCtx.fillRect(0,0,mw,mh);
+
+  // Draw thumbnail of assembled pattern
+  if(pat.assembled){
+    mmCtx.drawImage(pat.assembled,0,0,mw,mh);
+  } else if(pat.groups[0]?.canvas){
+    mmCtx.drawImage(pat.groups[0].canvas,0,0,mw,mh);
+  }
+
+  // Viewport rectangle (where the mat sits in pattern space)
+  const{x,y,scale}=pat.transform;
+  const vpX=-x/scale, vpY=-y/scale;
+  const vpW=S.canvasW/scale, vpH=S.canvasH/scale;
+  mmCtx.strokeStyle='rgba(79,163,255,.9)';
+  mmCtx.lineWidth=1.5;
+  mmCtx.strokeRect(vpX*sc,vpY*sc,vpW*sc,vpH*sc);
+}
+
+// ═══════════════════════════════════════════════════════════
 // PDF LOADING
-// ═══════════════════════════════════════════════════════════════
-async function loadPDF(file) {
-  try {
-    E.pdfLabel.textContent = 'Loading…';
-    const arrayBuffer = await file.arrayBuffer();
-    S.pattern.pdfDoc = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
-    S.pattern.numPages = S.pattern.pdfDoc.numPages;
-    S.pattern.pageNum = 1;
-    E.pdfLabel.textContent = file.name;
-    E.pageNav.classList.toggle('hidden', S.pattern.numPages <= 1);
-    await renderPDFPage();
-  } catch (err) {
-    console.error('PDF load error:', err);
-    E.pdfLabel.textContent = 'Error loading PDF';
+// ═══════════════════════════════════════════════════════════
+async function loadPDF(file){
+  try{
+    E.pdfLabel.textContent='Loading…';
+    const buf=await file.arrayBuffer();
+    S.pattern.pdfDoc=await pdfjsLib.getDocument({data:buf}).promise;
+    S.pattern.numPages=S.pattern.pdfDoc.numPages;
+    S.pattern.pageNum=1;
+    E.pdfLabel.textContent=file.name;
+
+    if(S.pattern.numPages>2){
+      // Multi-page — show assembly workflow
+      await initAssembly();
+    } else {
+      E.pageNav.classList.toggle('hidden',S.pattern.numPages<=1);
+      await renderPDFPage();
+    }
+  } catch(err){
+    console.error(err); E.pdfLabel.textContent='Error loading PDF';
   }
 }
 
-async function renderPDFPage() {
-  if (!S.pattern.pdfDoc) return;
-  E.pageInfo.textContent = `Page ${S.pattern.pageNum} / ${S.pattern.numPages}`;
-
-  S.pattern.page = await S.pattern.pdfDoc.getPage(S.pattern.pageNum);
-  const scale = S.scale.ppu / 72; // PDF uses 72dpi internally
-  S.pattern.viewport = S.pattern.page.getViewport({ scale });
-
-  // Analyze dash styles
+async function renderPDFPage(){
+  if(!S.pattern.pdfDoc) return;
+  E.pageInfo.textContent=`${S.pattern.pageNum} / ${S.pattern.numPages}`;
+  S.pattern.page=await S.pattern.pdfDoc.getPage(S.pattern.pageNum);
+  const sc=S.scale.ppu/72;
+  S.pattern.viewport=S.pattern.page.getViewport({scale:sc});
+  S.pattern.assembled=null;
+  S.pattern.isTiled=false;
   await analyzeDashes(S.pattern.page);
-
-  // Render all groups
   await renderAllGroups();
-
-  // Center the pattern on first load
-  S.pattern.transform.x = (S.canvasW - S.pattern.viewport.width) / 2;
-  S.pattern.transform.y = (S.canvasH - S.pattern.viewport.height) / 2;
-  updatePatternXY();
+  centerPattern();
 }
 
-// ═══════════════════════════════════════════════════════════════
-// DASH ANALYSIS
-// ═══════════════════════════════════════════════════════════════
-async function analyzeDashes(page) {
-  const opList = await page.getOperatorList();
-  const { fnArray, argsArray } = opList;
-  const OPS = pdfjsLib.OPS;
+// ═══════════════════════════════════════════════════════════
+// ASSEMBLY
+// ═══════════════════════════════════════════════════════════
+async function initAssembly(){
+  const n=S.pattern.numPages;
+  // Auto-detect tile pages: skip pages that are likely covers (first 1-2)
+  // Default: page 1 = cover/instructions, pages 2+ = tiles
+  const tileCount=n-2;
+  // Auto-guess columns: closest factor of tileCount near sqrt(tileCount)
+  const sq=Math.sqrt(tileCount);
+  let bestCols=1;
+  for(let c=1;c<=tileCount;c++){
+    if(tileCount%c===0&&Math.abs(c-sq)<Math.abs(bestCols-sq)) bestCols=c;
+  }
 
-  const groupMap = new Map(); // dashKey -> {dash, strokeCount}
-  let curDash = [];
+  S.assembly.cols=bestCols;
+  S.assembly.rows=Math.ceil(tileCount/bestCols);
+  S.assembly.layout=Array.from({length:n},(_,i)=>({pageNum:i+1,excluded:i<2}));
 
-  for (let i = 0; i < fnArray.length; i++) {
-    const fn = fnArray[i];
-    if (fn === OPS.setDash) {
-      curDash = argsArray[i][0] ? Array.from(argsArray[i][0]) : [];
-    } else if (fn === OPS.stroke || fn === OPS.fillStroke || fn === OPS.eoFillStroke) {
-      const key = normalizeDashKey(curDash);
-      if (!groupMap.has(key)) {
-        groupMap.set(key, { dash: [...curDash], strokeCount: 0 });
+  document.getElementById('asm-title').textContent=`Pattern Assembly — ${E.pdfLabel.textContent}`;
+  document.getElementById('asm-sub').textContent=
+    `${n} pages detected · ${tileCount} tile pages (${bestCols} cols × ${S.assembly.rows} rows)`;
+  E.asmCols.value=S.assembly.cols;
+  E.asmRows.value=S.assembly.rows;
+  E.asmTrim.value=S.assembly.overlapTrim;
+  E.asmTrimVal.textContent=S.assembly.overlapTrim+'"';
+  updateAsmSizeInfo();
+
+  document.getElementById('modal-assembly').classList.remove('hidden');
+  await buildAsmGrid();
+}
+
+async function buildAsmGrid(){
+  E.asmGrid.innerHTML='';
+  const cols=parseInt(E.asmCols.value)||6;
+  const rows=parseInt(E.asmRows.value)||7;
+  E.asmGrid.style.gridTemplateColumns=`repeat(${cols},${S.assembly.thumbW}px)`;
+
+  const layout=S.assembly.layout;
+  const included=layout.filter(l=>!l.excluded);
+  let slotIdx=0;
+
+  for(let r=0;r<rows;r++){
+    for(let c=0;c<cols;c++){
+      const item=included[slotIdx];
+      const slot=document.createElement('div');
+      slot.className='asm-slot'+(item?'':' empty');
+      slot.style.width=S.assembly.thumbW+'px';
+      slot.style.height=S.assembly.thumbH+'px';
+
+      if(item){
+        slot.dataset.pageNum=item.pageNum;
+        slot.dataset.slotIdx=slotIdx;
+        // Thumb
+        if(S.assembly.thumbs.has(item.pageNum)){
+          slot.appendChild(S.assembly.thumbs.get(item.pageNum).cloneNode());
+        } else {
+          slot.classList.add('loading');
+          slot.textContent='…';
+          renderThumb(item.pageNum).then(th=>{
+            S.assembly.thumbs.set(item.pageNum,th);
+            if(slot.classList.contains('loading')){
+              slot.classList.remove('loading');
+              slot.textContent='';
+              slot.appendChild(th.cloneNode());
+            }
+          });
+        }
+        // Page number badge
+        const pn=document.createElement('div');
+        pn.className='asm-pnum';
+        pn.textContent=slotIdx+1; // tile number (1-based)
+        slot.appendChild(pn);
+        // Exclude button
+        const ex=document.createElement('button');
+        ex.className='asm-ex'; ex.textContent='×'; ex.title='Exclude this page';
+        ex.addEventListener('click',(e)=>{
+          e.stopPropagation();
+          const pn=parseInt(slot.dataset.pageNum);
+          const li=S.assembly.layout.find(l=>l.pageNum===pn);
+          if(li){ li.excluded=!li.excluded; buildAsmGrid(); }
+        });
+        slot.appendChild(ex);
+        // Drag
+        slot.draggable=true;
+        slot.addEventListener('dragstart',e=>{
+          S.assembly.dragSrc=slotIdx;
+          slot.classList.add('drag-src');
+          e.dataTransfer.effectAllowed='move';
+        });
+        slot.addEventListener('dragend',()=>slot.classList.remove('drag-src'));
+        slot.addEventListener('dragover',e=>{e.preventDefault();slot.classList.add('drag-over');});
+        slot.addEventListener('dragleave',()=>slot.classList.remove('drag-over'));
+        slot.addEventListener('drop',e=>{
+          e.preventDefault(); slot.classList.remove('drag-over');
+          const src=S.assembly.dragSrc, dst=parseInt(slot.dataset.slotIdx);
+          if(src===dst||src<0) return;
+          const inc=S.assembly.layout.filter(l=>!l.excluded);
+          [inc[src],inc[dst]]=[inc[dst],inc[src]];
+          let ii=0;
+          S.assembly.layout=S.assembly.layout.map(l=>l.excluded?l:inc[ii++]);
+          buildAsmGrid();
+        });
+        slotIdx++;
       }
-      groupMap.get(key).strokeCount++;
+      E.asmGrid.appendChild(slot);
     }
   }
+  updateAsmPageCount();
+}
 
-  S.pattern.groups = [];
-  let idx = 0;
-  const GROUP_COLORS = ['#ff2222','#2288ff','#22cc44','#ff8822','#cc22ff','#22cccc','#ffcc22','#ff2288'];
-  for (const [key, val] of groupMap) {
-    if (val.strokeCount === 0) continue;
+async function renderThumb(pageNum){
+  const page=await S.pattern.pdfDoc.getPage(pageNum);
+  const scale=S.assembly.thumbW/page.getViewport({scale:1}).width;
+  const vp=page.getViewport({scale});
+  const c=document.createElement('canvas');
+  c.width=Math.ceil(vp.width); c.height=Math.ceil(vp.height);
+  await page.render({canvasContext:c.getContext('2d'),viewport:vp}).promise;
+  return c;
+}
+
+function updateAsmPageCount(){
+  const inc=S.assembly.layout.filter(l=>!l.excluded).length;
+  E.asmPageCount.textContent=`${inc} of ${S.assembly.layout.length} pages included`;
+  updateAsmSizeInfo();
+}
+
+function updateAsmSizeInfo(){
+  const cols=parseInt(E.asmCols.value)||6;
+  const rows=parseInt(E.asmRows.value)||7;
+  const trim=parseFloat(E.asmTrim.value)||0;
+  // Use typical PDF page size 7.75" × 10.25" minus 2×trim per page
+  const pageW=558/72, pageH=738/72; // PDF units to inches
+  const cellW=pageW-trim*2, cellH=pageH-trim*2;
+  const totalW=(cellW*cols+trim*2).toFixed(1);
+  const totalH=(cellH*rows+trim*2).toFixed(1);
+  E.asmSizeInfo.textContent=`≈ ${totalW}" × ${totalH}"`;
+  E.asmSizeInfo.classList.add('warn');
+}
+
+async function assemblePattern(){
+  const cols=parseInt(E.asmCols.value)||6;
+  const rows=parseInt(E.asmRows.value)||7;
+  const trim=S.assembly.overlapTrim;
+  const included=S.assembly.layout.filter(l=>!l.excluded);
+
+  // Get viewport from first included page to determine page pixel dimensions
+  const firstPage=await S.pattern.pdfDoc.getPage(included[0].pageNum);
+  const sc=S.scale.ppu/72;
+  const vp=firstPage.getViewport({scale:sc});
+  S.pattern.viewport=vp;
+
+  const pageW=vp.width, pageH=vp.height;
+  const trimPx=trim*S.scale.ppu;
+  const cellW=pageW-trimPx*2, cellH=pageH-trimPx*2;
+  const totalW=Math.ceil(cellW*cols+trimPx*2);
+  const totalH=Math.ceil(cellH*rows+trimPx*2);
+
+  const assembled=document.createElement('canvas');
+  assembled.width=totalW; assembled.height=totalH;
+  const aCtx=assembled.getContext('2d');
+  aCtx.fillStyle='#fff'; aCtx.fillRect(0,0,totalW,totalH);
+
+  E.asmProgressWrap.classList.remove('hidden');
+  const total=Math.min(included.length,cols*rows);
+
+  for(let i=0;i<total;i++){
+    const item=included[i];
+    const col=i%cols, row=Math.floor(i/cols);
+    E.asmProgressTxt.textContent=`Rendering page ${item.pageNum} (${i+1}/${total})…`;
+    E.asmProgressBar.style.width=((i+1)/total*100)+'%';
+
+    const page=await S.pattern.pdfDoc.getPage(item.pageNum);
+    const pageVP=page.getViewport({scale:sc});
+    const pc=document.createElement('canvas');
+    pc.width=Math.ceil(pageVP.width); pc.height=Math.ceil(pageVP.height);
+    await page.render({canvasContext:pc.getContext('2d'),viewport:pageVP}).promise;
+
+    const dx=col*cellW+trimPx, dy=row*cellH+trimPx;
+    aCtx.drawImage(pc, trimPx,trimPx,cellW,cellH, dx,dy,cellW,cellH);
+  }
+
+  S.pattern.assembled=assembled;
+  S.pattern.assembledW=totalW;
+  S.pattern.assembledH=totalH;
+  S.pattern.isTiled=true;
+
+  // Now analyze dashes on first page for size groups, then render all groups assembled
+  await analyzeDashes(firstPage);
+  await renderAllGroupsAssembled(cols,rows,included,sc,cellW,cellH,trimPx,totalW,totalH);
+
+  // Center assembled pattern on screen
+  centerPattern();
+  E.asmSummary.classList.remove('hidden');
+  E.asmSummaryTxt.textContent=`Assembled: ${cols}×${rows} = ${included.length} pages · ≈${(totalW/S.scale.ppu).toFixed(1)}" × ${(totalH/S.scale.ppu).toFixed(1)}"`;
+  E.pageNav.classList.add('hidden');
+  document.getElementById('modal-assembly').classList.add('hidden');
+  E.asmProgressWrap.classList.add('hidden');
+}
+
+async function renderAllGroupsAssembled(cols,rows,included,sc,cellW,cellH,trimPx,totalW,totalH){
+  for(const group of S.pattern.groups){
+    const ac=document.createElement('canvas');
+    ac.width=totalW; ac.height=totalH;
+    const aCtx=ac.getContext('2d');
+
+    for(let i=0;i<Math.min(included.length,cols*rows);i++){
+      const item=included[i];
+      const col=i%cols,row=Math.floor(i/cols);
+      const page=await S.pattern.pdfDoc.getPage(item.pageNum);
+      const vp=page.getViewport({scale:sc});
+      const pc=document.createElement('canvas');
+      pc.width=Math.ceil(vp.width); pc.height=Math.ceil(vp.height);
+      const proxy=createDashFilterProxy(pc.getContext('2d'),group);
+      await page.render({canvasContext:proxy,viewport:vp}).promise;
+      const dx=col*cellW+trimPx, dy=row*cellH+trimPx;
+      aCtx.drawImage(pc,trimPx,trimPx,cellW,cellH,dx,dy,cellW,cellH);
+    }
+    group.canvas=ac;
+  }
+}
+
+// ═══════════════════════════════════════════════════════════
+// DASH ANALYSIS + GROUP RENDERING
+// ═══════════════════════════════════════════════════════════
+async function analyzeDashes(page){
+  const ops=await page.getOperatorList();
+  const{fnArray,argsArray}=ops;
+  const OPS=pdfjsLib.OPS;
+  const map=new Map();
+  let curDash=[];
+  for(let i=0;i<fnArray.length;i++){
+    if(fnArray[i]===OPS.setDash) curDash=argsArray[i][0]?Array.from(argsArray[i][0]):[];
+    else if(fnArray[i]===OPS.stroke||fnArray[i]===OPS.fillStroke||fnArray[i]===OPS.eoFillStroke){
+      const k=normDashKey(curDash);
+      if(!map.has(k)) map.set(k,{dash:[...curDash],n:0});
+      map.get(k).n++;
+    }
+  }
+  const GCOLS=['#ff2222','#2288ff','#22cc44','#ff8822','#cc22ff','#22cccc','#ffcc22','#ff2288'];
+  S.pattern.groups=[];
+  let idx=0;
+  for(const[key,val] of map){
+    if(!val.n) continue;
     S.pattern.groups.push({
-      id: idx,
-      dashKey: key,
-      dash: val.dash,
-      label: dashLabel(val.dash),
-      vis: 'show',
-      canvas: null,
-      color: GROUP_COLORS[idx % GROUP_COLORS.length],
-      weight: null,
-      active: idx === 0,
-      invert: false,
+      id:idx, dashKey:key, dash:val.dash,
+      label:dashLabel(val.dash),
+      vis:'show', canvas:null,
+      color:GCOLS[idx%GCOLS.length],
+      active:idx===0, invert:false,
     });
     idx++;
   }
-
   buildSizesPanel();
 }
 
-function normalizeDashKey(dash) {
-  if (!Array.isArray(dash) || dash.length === 0) return '[]';
-  return JSON.stringify(dash.map(Number));
+const normDashKey=d=>(!d||!d.length)?'[]':JSON.stringify(d.map(Number));
+function dashLabel(d){
+  if(!d||!d.length) return'Solid';
+  if(d.length===2){
+    const[on,off]=d;
+    if(on<=1) return'Dotted';
+    if(on===off) return`Dash (${on})`;
+    return on>off?'Long Dash':'Short Dash';
+  }
+  if(d.length===4) return'Dash-Dot';
+  return`Pattern (${d.join(',')})`;
 }
 
-function dashLabel(dash) {
-  if (!dash || dash.length === 0) return 'Solid';
-  if (dash.length === 2) {
-    const [on, off] = dash;
-    if (on <= 1) return 'Dotted';
-    if (on === off) return `Dash (${on})`;
-    if (on > off * 1.5) return `Long Dash`;
-    if (on < off * 0.7) return `Short Dash`;
-    return `Dash ${on}/${off}`;
-  }
-  if (dash.length === 4) return 'Dash-Dot';
-  return `Custom (${dash.join(',')})`;
+function createDashFilterProxy(realCtx,group){
+  const targetKey=group.dashKey;
+  let curKey='[]';
+  const stack=['[]'];
+  return new Proxy(realCtx,{
+    get(t,p){
+      if(typeof p!=='string') return Reflect.get(t,p);
+      if(p==='save') return()=>{stack.push(curKey);t.save();};
+      if(p==='restore') return()=>{curKey=stack.pop()??'[]';t.restore();};
+      if(p==='setLineDash') return(d)=>{curKey=normDashKey(d);t.setLineDash(d);};
+      if(p==='stroke') return()=>{
+        if(curKey===targetKey){
+          const ov=group.active?S.pattern.highlightColor:group.color;
+          const prev=t.strokeStyle; t.strokeStyle=ov; t.stroke(); t.strokeStyle=prev;
+        }
+      };
+      const v=t[p]; return typeof v==='function'?v.bind(t):v;
+    },
+    set(t,p,v){t[p]=v;return true;},
+  });
 }
 
-// ═══════════════════════════════════════════════════════════════
-// GROUP RENDERING (per dash style)
-// ═══════════════════════════════════════════════════════════════
-async function renderAllGroups() {
-  if (!S.pattern.page || !S.pattern.viewport) return;
-  S.pattern.loadingGroups = true;
-
-  for (const group of S.pattern.groups) {
-    group.canvas = await renderSingleGroup(group);
-  }
-
-  S.pattern.loadingGroups = false;
+async function renderAllGroups(){
+  if(!S.pattern.page||!S.pattern.viewport) return;
+  S.pattern.loadingGroups=true;
+  for(const g of S.pattern.groups) g.canvas=await renderSingleGroup(g);
+  S.pattern.loadingGroups=false;
   updateSizesPanel();
 }
 
-async function renderSingleGroup(group) {
-  const vp = S.pattern.viewport;
-  const canvas = document.createElement('canvas');
-  canvas.width  = Math.ceil(vp.width);
-  canvas.height = Math.ceil(vp.height);
-  const realCtx = canvas.getContext('2d');
-
-  // Transparent background
-  realCtx.clearRect(0, 0, canvas.width, canvas.height);
-
-  const targetKey = group.dashKey;
-  let curDashKey = '[]';
-  const dashStack = ['[]'];
-  // Active groups render in highlight color for easy identification
-  const overrideColor = group.active ? S.pattern.highlightColor : group.color;
-
-  const proxy = new Proxy(realCtx, {
-    get(target, prop) {
-      if (typeof prop !== 'string') return Reflect.get(target, prop);
-
-      if (prop === 'save') return () => { dashStack.push(curDashKey); target.save(); };
-      if (prop === 'restore') return () => {
-        curDashKey = dashStack.pop() ?? '[]';
-        target.restore();
-      };
-      if (prop === 'setLineDash') return (dash) => {
-        curDashKey = normalizeDashKey(dash);
-        target.setLineDash(dash);
-      };
-      if (prop === 'stroke') return () => {
-        if (curDashKey === targetKey) {
-          const prevStyle = target.strokeStyle;
-          target.strokeStyle = overrideColor;
-          target.stroke();
-          target.strokeStyle = prevStyle;
-        }
-      };
-      // Skip strokes that are part of fill+stroke for non-matching
-      if (prop === 'fill') return (...a) => target.fill(...a);
-
-      const val = target[prop];
-      if (typeof val === 'function') return val.bind(target);
-      return val;
-    },
-    set(target, prop, value) {
-      target[prop] = value;
-      return true;
-    },
-  });
-
-  try {
-    await S.pattern.page.render({ canvasContext: proxy, viewport: vp }).promise;
-  } catch (e) {
-    // Render errors are non-fatal
-  }
-
-  return canvas;
+async function renderSingleGroup(group){
+  const vp=S.pattern.viewport;
+  const c=document.createElement('canvas');
+  c.width=Math.ceil(vp.width); c.height=Math.ceil(vp.height);
+  const rc=c.getContext('2d');
+  rc.clearRect(0,0,c.width,c.height);
+  const proxy=createDashFilterProxy(rc,group);
+  try{ await S.pattern.page.render({canvasContext:proxy,viewport:vp}).promise; }catch(e){}
+  return c;
 }
 
-// ═══════════════════════════════════════════════════════════════
+// ═══════════════════════════════════════════════════════════
 // PATTERN DRAWING
-// ═══════════════════════════════════════════════════════════════
-function drawPattern() {
-  if (!S.pattern.page) return;
-  const { x, y, rotation, scale, opacity } = S.pattern.transform;
-  if (S.pattern.groups.length === 0) return;
-
+// ═══════════════════════════════════════════════════════════
+function drawPattern(){
+  if(!S.pattern.groups.length&&!S.pattern.assembled) return;
+  const{x,y,rotation,scale,opacity}=S.pattern.transform;
   ctx.save();
-  ctx.translate(x, y);
-  ctx.rotate(rotation * Math.PI / 180);
-  ctx.scale(scale, scale);
+  ctx.translate(x,y); ctx.rotate(rotation*Math.PI/180); ctx.scale(scale,scale);
 
-  // Draw non-active groups first
-  for (const group of S.pattern.groups) {
-    if (group.active || group.vis === 'hide' || !group.canvas) continue;
-    const groupOpacity = group.vis === 'ghost' ? 0.2 : 1.0;
-    ctx.globalAlpha = opacity * groupOpacity;
-    const shouldInvert = S.globalInvert !== group.invert; // XOR
-    if (shouldInvert) ctx.filter = 'invert(100%)';
-    ctx.drawImage(group.canvas, 0, 0);
-    ctx.filter = 'none';
+  // Non-active groups first
+  for(const g of S.pattern.groups){
+    if(g.active||g.vis==='hide'||!g.canvas) continue;
+    ctx.globalAlpha=opacity*(g.vis==='ghost'?.2:1);
+    if(S.globalInvert!==g.invert) ctx.filter='invert(100%)';
+    ctx.drawImage(g.canvas,0,0); ctx.filter='none';
   }
-
-  // Draw active group last (on top)
-  for (const group of S.pattern.groups) {
-    if (!group.active || group.vis === 'hide' || !group.canvas) continue;
-    const groupOpacity = group.vis === 'ghost' ? 0.2 : 1.0;
-    ctx.globalAlpha = opacity * groupOpacity;
-    const shouldInvert = S.globalInvert !== group.invert;
-    if (shouldInvert) ctx.filter = 'invert(100%)';
-    ctx.drawImage(group.canvas, 0, 0);
-    ctx.filter = 'none';
+  // Active group on top
+  for(const g of S.pattern.groups){
+    if(!g.active||g.vis==='hide'||!g.canvas) continue;
+    ctx.globalAlpha=opacity*(g.vis==='ghost'?.2:1);
+    if(S.globalInvert!==g.invert) ctx.filter='invert(100%)';
+    ctx.drawImage(g.canvas,0,0); ctx.filter='none';
   }
-
   ctx.restore();
 }
 
-// ═══════════════════════════════════════════════════════════════
-// SIZES PANEL UI
-// ═══════════════════════════════════════════════════════════════
-function buildSizesPanel() {
-  E.sizesPanel.innerHTML = '';
-  if (S.pattern.groups.length === 0) {
-    E.sizesPanel.innerHTML = '<div class="hint">No distinct line styles detected.</div>';
-    return;
+// ═══════════════════════════════════════════════════════════
+// SIZES PANEL
+// ═══════════════════════════════════════════════════════════
+function buildSizesPanel(){ E.sizesPanel.innerHTML=''; updateSizesPanel(); }
+
+function updateSizesPanel(){
+  if(!S.pattern.groups.length){
+    E.sizesPanel.innerHTML='<div class="hint">No distinct line styles detected.</div>'; return;
   }
-  updateSizesPanel();
-}
+  E.sizesPanel.innerHTML='';
+  for(const g of S.pattern.groups){
+    const entry=document.createElement('div'); entry.className='size-entry';
+    const sw=document.createElement('canvas'); sw.className='dash-sw'; sw.width=72; sw.height=14;
+    drawDashSwatch(sw,g.dash,g.active?S.pattern.highlightColor:g.color);
 
-function updateSizesPanel() {
-  if (S.pattern.groups.length === 0) return;
-  E.sizesPanel.innerHTML = '';
+    const li=document.createElement('input'); li.className='size-lbl-in'; li.value=g.label;
+    li.addEventListener('change',()=>{g.label=li.value;saveState();});
 
-  for (const group of S.pattern.groups) {
-    const entry = document.createElement('div');
-    entry.className = 'size-entry';
-    entry.dataset.id = group.id;
-
-    // Swatch
-    const swatch = document.createElement('canvas');
-    swatch.className = 'dash-swatch';
-    swatch.width = 72;
-    swatch.height = 14;
-    drawDashSwatch(swatch, group.dash, group.color);
-
-    // Header row
-    const header = document.createElement('div');
-    header.className = 'size-entry-header';
-
-    const labelInput = document.createElement('input');
-    labelInput.className = 'size-label-input';
-    labelInput.value = group.label;
-    labelInput.addEventListener('change', () => {
-      group.label = labelInput.value;
-      saveState();
-    });
-
-    const activeBtn = document.createElement('button');
-    activeBtn.className = 'active-size-btn' + (group.active ? ' is-active' : '');
-    activeBtn.title = 'Mark as active size (rendered in highlight color)';
-    activeBtn.textContent = '★';
-    activeBtn.addEventListener('click', async () => {
-      const prevActive = S.pattern.groups.find(g => g.active && g !== group);
-      S.pattern.groups.forEach(g => g.active = false);
-      group.active = true;
+    const ab=document.createElement('button'); ab.className='act-sz'+(g.active?' on':'');
+    ab.title='Mark active (renders in highlight color)'; ab.textContent='★';
+    ab.addEventListener('click',async()=>{
+      const prev=S.pattern.groups.find(x=>x.active&&x!==g);
+      S.pattern.groups.forEach(x=>x.active=false); g.active=true;
       updateSizesPanel();
-      // Re-render affected groups so their colors update (highlight vs. base)
-      if (prevActive) prevActive.canvas = await renderSingleGroup(prevActive);
-      group.canvas = await renderSingleGroup(group);
-      saveState();
+      if(prev&&prev.canvas) prev.canvas=await renderSingleGroup(prev);
+      g.canvas=await renderSingleGroup(g); saveState();
     });
 
-    header.append(swatch, labelInput, activeBtn);
+    const hdr=document.createElement('div'); hdr.className='size-hdr';
+    hdr.append(sw,li,ab);
 
-    // Visibility row
-    const visRow = document.createElement('div');
-    visRow.className = 'size-entry-vis';
-    ['show', 'ghost', 'hide'].forEach(v => {
-      const btn = document.createElement('button');
-      btn.className = 'vis-btn' + (group.vis === v ? ` active-${v}` : '');
-      btn.textContent = v.charAt(0).toUpperCase() + v.slice(1);
-      btn.addEventListener('click', () => {
-        group.vis = v;
-        updateSizesPanel();
-        saveState();
-      });
-      visRow.appendChild(btn);
+    const vis=document.createElement('div'); vis.className='size-vis';
+    ['show','ghost','hide'].forEach(v=>{
+      const b=document.createElement('button');
+      b.className='vis-btn'+(g.vis===v?' vs-'+v:''); b.textContent=v[0].toUpperCase()+v.slice(1);
+      b.addEventListener('click',()=>{g.vis=v;updateSizesPanel();saveState();});
+      vis.appendChild(b);
     });
 
-    // Controls row: color + weight + invert
-    const ctrlRow = document.createElement('div');
-    ctrlRow.className = 'size-entry-controls';
-
-    const colorPick = document.createElement('input');
-    colorPick.type = 'color';
-    colorPick.value = group.color;
-    colorPick.addEventListener('input', async () => {
-      group.color = colorPick.value;
-      drawDashSwatch(swatch, group.dash, group.active ? S.pattern.highlightColor : group.color);
-      group.canvas = await renderSingleGroup(group);
-      saveState();
+    const ctrls=document.createElement('div'); ctrls.className='size-ctrls';
+    const cp=document.createElement('input'); cp.type='color'; cp.value=g.color;
+    cp.addEventListener('input',async()=>{
+      g.color=cp.value;
+      drawDashSwatch(sw,g.dash,g.active?S.pattern.highlightColor:g.color);
+      g.canvas=await renderSingleGroup(g); saveState();
     });
-
-    const wtSlider = document.createElement('input');
-    wtSlider.type = 'range';
-    wtSlider.min = 0.5; wtSlider.max = 5; wtSlider.step = 0.5;
-    wtSlider.value = group.weight ?? 1;
-    wtSlider.style.flex = '1';
-    wtSlider.title = 'Stroke weight';
-    wtSlider.addEventListener('input', () => {
-      group.weight = parseFloat(wtSlider.value);
-    });
-
-    const invertBtn = document.createElement('button');
-    invertBtn.className = 'vis-btn' + (group.invert ? ' active-show' : '');
-    invertBtn.title = 'Invert this group';
-    invertBtn.textContent = '⟳';
-    invertBtn.style.padding = '2px 5px';
-    invertBtn.addEventListener('click', () => {
-      group.invert = !group.invert;
-      invertBtn.className = 'vis-btn' + (group.invert ? ' active-show' : '');
-      saveState();
-    });
-
-    ctrlRow.append(colorPick, wtSlider, invertBtn);
-    entry.append(header, visRow, ctrlRow);
-    E.sizesPanel.appendChild(entry);
+    const wt=document.createElement('input'); wt.type='range'; wt.min=.5; wt.max=5; wt.step=.5;
+    wt.value=g.weight??1; wt.style.flex='1'; wt.title='Stroke weight';
+    wt.addEventListener('input',()=>{g.weight=parseFloat(wt.value);});
+    const inv=document.createElement('button');
+    inv.className='vis-btn'+(g.invert?' vs-show':''); inv.title='Invert this group'; inv.textContent='⟳';
+    inv.style.padding='2px 5px';
+    inv.addEventListener('click',()=>{g.invert=!g.invert;inv.className='vis-btn'+(g.invert?' vs-show':'');saveState();});
+    ctrls.append(cp,wt,inv);
+    entry.append(hdr,vis,ctrls); E.sizesPanel.appendChild(entry);
   }
 }
 
-function drawDashSwatch(canvas, dash, color) {
-  const sCtx = canvas.getContext('2d');
-  sCtx.clearRect(0, 0, canvas.width, canvas.height);
-  sCtx.fillStyle = '#1c1c1c';
-  sCtx.fillRect(0, 0, canvas.width, canvas.height);
-  sCtx.strokeStyle = color;
-  sCtx.lineWidth = 2;
-  sCtx.setLineDash(dash.length > 0 ? dash : []);
-  sCtx.beginPath();
-  sCtx.moveTo(4, canvas.height / 2);
-  sCtx.lineTo(canvas.width - 4, canvas.height / 2);
-  sCtx.stroke();
-  sCtx.setLineDash([]);
+function drawDashSwatch(c,dash,color){
+  const sc=c.getContext('2d');
+  sc.clearRect(0,0,c.width,c.height); sc.fillStyle='#1c1c1c'; sc.fillRect(0,0,c.width,c.height);
+  sc.strokeStyle=color; sc.lineWidth=2; sc.setLineDash(dash.length?dash:[]);
+  sc.beginPath(); sc.moveTo(4,c.height/2); sc.lineTo(c.width-4,c.height/2); sc.stroke();
+  sc.setLineDash([]);
 }
 
-// ═══════════════════════════════════════════════════════════════
-// SNAP LOGIC
-// ═══════════════════════════════════════════════════════════════
-function snapCornerToGrid(idx) {
-  const { nCols, nRows } = getGridDims();
-  const c = S.corners[idx];
-  let best = null, bestD = Infinity;
-
-  for (let r = 0; r <= nRows; r++) {
-    for (let col = 0; col <= nCols; col++) {
-      const p = bilinear(col / nCols, r / nRows);
-      const d = dist(c, p);
-      if (d < bestD) { bestD = d; best = p; }
-    }
-  }
-  if (best && bestD < 40) {
-    S.corners[idx] = { ...best };
-  }
+// ═══════════════════════════════════════════════════════════
+// PATTERN TRANSFORM
+// ═══════════════════════════════════════════════════════════
+function centerPattern(){
+  const vp=S.pattern.assembled?
+    {width:S.pattern.assembledW,height:S.pattern.assembledH}:
+    S.pattern.viewport;
+  if(!vp) return;
+  const sc=S.pattern.transform.scale;
+  S.pattern.transform.x=(S.canvasW-vp.width*sc)/2;
+  S.pattern.transform.y=(S.canvasH-vp.height*sc)/2;
+  updateXYInputs();
 }
 
-// ═══════════════════════════════════════════════════════════════
-// MAIN RENDER
-// ═══════════════════════════════════════════════════════════════
-function render() {
-  ctx.clearRect(0, 0, S.canvasW, S.canvasH);
+function updateXYInputs(){
+  document.getElementById('pat-x').value=Math.round(S.pattern.transform.x);
+  document.getElementById('pat-y').value=Math.round(S.pattern.transform.y);
+}
 
-  if (S.projectMode) {
-    // Project mode: black background, grid + pattern, no UI chrome
-    ctx.fillStyle = '#000';
-    ctx.fillRect(0, 0, S.canvasW, S.canvasH);
-    drawGrid();
-    drawPattern();
-    return;
+function applyRefSquareScale(){
+  const pts=S.pattern.refSquare.points;
+  if(pts.length<2) return;
+  const pxDist=dist(pts[0],pts[1]);
+  const realSize=parseFloat(document.getElementById('ref-sq-size').value)||2;
+  const newScale=(S.scale.ppu*realSize)/pxDist*S.pattern.transform.scale;
+  S.pattern.transform.scale=clamp(newScale,.05,8);
+  document.getElementById('pat-scale').value=S.pattern.transform.scale;
+  document.getElementById('pat-scale-val').textContent=Math.round(S.pattern.transform.scale*100)+'%';
+  E.refSqCtrls.classList.add('hidden'); E.refSqIdle.classList.remove('hidden');
+  E.refSqHint.textContent='Scale applied.';
+  S.pattern.refSquare.points=[];
+  saveState();
+}
+
+// ═══════════════════════════════════════════════════════════
+// SNAP
+// ═══════════════════════════════════════════════════════════
+function snapCornerToGrid(idx){
+  const{nCols,nRows}=getGridDims();
+  const c=S.corners[idx]; let best=null,bd=Infinity;
+  for(let r=0;r<=nRows;r++) for(let cc=0;cc<=nCols;cc++){
+    const p=bilinear(cc/nCols,r/nRows),d=dist(c,p);
+    if(d<bd){bd=d;best=p;}
   }
+  if(best&&bd<40) S.corners[idx]={...best};
+}
 
-  ctx.fillStyle = '#0d0d0d';
-  ctx.fillRect(0, 0, S.canvasW, S.canvasH);
+// ═══════════════════════════════════════════════════════════
+// RENDER LOOP
+// ═══════════════════════════════════════════════════════════
+function render(){
+  ctx.clearRect(0,0,S.canvasW,S.canvasH);
+  ctx.fillStyle=S.projectMode?'#000':'#0d0d0d';
+  ctx.fillRect(0,0,S.canvasW,S.canvasH);
 
   drawGrid();
   drawPattern();
 
-  // UI overlays
-  if (S.appMode === 'calibrate') {
-    drawScaleRef();
-    drawCorners();
-    drawCrosshair();
+  if(!S.projectMode){
+    if(S.appMode==='calibrate'){ drawScaleRef(); drawCorners(); drawCrosshair(); }
+    if(S.appMode==='pattern'){ drawRefSquare(); drawCorners(); }
+    _loupeBuffer=(S.floatTools.loupe&&S.floatingIdx!==-1)?E.mainCanvas:null;
+    drawLoupe();
+    drawMinimap();
   }
-  if (S.appMode === 'pattern') {
-    drawRefSquare();
-    drawCorners();
-  }
-
-  // Capture buffer for loupe (before loupe is drawn)
-  captureRenderBuffer();
-  drawLoupe();
 }
 
-function captureRenderBuffer() {
-  if (!S.floatTools.loupe || S.floatingIdx === -1) { renderBuffer = null; return; }
-  renderBuffer = E.mainCanvas;
+function startRenderLoop(){ (function frame(){ render(); requestAnimationFrame(frame); })(); }
+
+// ═══════════════════════════════════════════════════════════
+// MOUSE / KEYBOARD
+// ═══════════════════════════════════════════════════════════
+function canvasXY(e){
+  const r=E.mainCanvas.getBoundingClientRect();
+  return{x:e.clientX-r.left,y:e.clientY-r.top};
 }
 
-let rafId = null;
-function startRenderLoop() {
-  function frame() {
-    render();
-    rafId = requestAnimationFrame(frame);
-  }
-  frame();
-}
+let _noDbClick=false;
+E.mainCanvas.addEventListener('mousemove',onMouseMove);
+E.mainCanvas.addEventListener('mousedown',onMouseDown);
+E.mainCanvas.addEventListener('mouseup',onMouseUp);
+E.mainCanvas.addEventListener('dblclick',onDblClick);
+E.mainCanvas.addEventListener('click',onClick);
+E.mainCanvas.addEventListener('contextmenu',e=>e.preventDefault());
 
-// ═══════════════════════════════════════════════════════════════
-// CANVAS MOUSE EVENTS
-// ═══════════════════════════════════════════════════════════════
-function canvasXY(e) {
-  const rect = E.mainCanvas.getBoundingClientRect();
-  return {
-    x: (e.clientX - rect.left),
-    y: (e.clientY - rect.top),
-  };
-}
-
-E.mainCanvas.addEventListener('mousemove', onMouseMove);
-E.mainCanvas.addEventListener('mousedown', onMouseDown);
-E.mainCanvas.addEventListener('mouseup', onMouseUp);
-E.mainCanvas.addEventListener('dblclick', onDblClick);
-E.mainCanvas.addEventListener('click', onClick);
-E.mainCanvas.addEventListener('contextmenu', e => e.preventDefault());
-
-let _suppressDblClick = false;
-
-function onMouseMove(e) {
-  const { x, y } = canvasXY(e);
-  S.cursor = { x, y };
-
-  if (S.floatingIdx !== -1) {
-    S.corners[S.floatingIdx] = { x, y };
-    if (S.floatTools.snap) snapCornerToGrid(S.floatingIdx);
+function onMouseMove(e){
+  const{x,y}=canvasXY(e); S.cursor={x,y};
+  if(S.floatingIdx!==-1){
+    S.corners[S.floatingIdx]={x,y};
+    if(S.floatTools.snap) snapCornerToGrid(S.floatingIdx);
     return;
   }
-
-  if (S.draggingIdx !== -1) {
-    S.corners[S.draggingIdx] = { x, y };
-    return;
+  if(S.draggingIdx>=0){ S.corners[S.draggingIdx]={x,y}; return; }
+  if(S.pattern.dragging){
+    const dx=x-S.pattern.dragStartMouse.x, dy=y-S.pattern.dragStartMouse.y;
+    S.pattern.transform.x=S.pattern.dragStartPos.x+dx;
+    S.pattern.transform.y=S.pattern.dragStartPos.y+dy;
+    updateXYInputs(); return;
   }
-
-  if (S.appMode === 'pattern' && S.pattern.dragging) {
-    const dx = x - S.pattern.dragStartMouse.x;
-    const dy = y - S.pattern.dragStartMouse.y;
-    S.pattern.transform.x = S.pattern.dragStartPos.x + dx;
-    S.pattern.transform.y = S.pattern.dragStartPos.y + dy;
-    updatePatternXY();
-    return;
-  }
-
-  // Cursor feedback
-  const hi = hitTestCorner(x, y);
-  E.mainCanvas.style.cursor = hi >= 0 ? 'grab' : (S.scale.picking || S.pattern.refSquare.picking ? 'crosshair' : 'default');
+  const hi=hitCorner(x,y);
+  E.mainCanvas.style.cursor=hi>=0?'grab':(S.scale.picking||S.pattern.refSquare.picking?'crosshair':'default');
 }
 
-function onMouseDown(e) {
-  if (e.button !== 0) return;
-  const { x, y } = canvasXY(e);
-
-  if (S.floatingIdx !== -1) return; // floating: click locks (handled in onClick)
-
-  const hi = hitTestCorner(x, y);
-
-  if (hi >= 0 && S.cornerMode === 'drag') {
-    S.draggingIdx = hi;
-    E.mainCanvas.style.cursor = 'grabbing';
-    return;
-  }
-
-  if (S.appMode === 'calibrate' && S.scale.picking) return; // handled in click
-
-  if (S.appMode === 'pattern' && S.pattern.refSquare.picking) return; // handled in click
-
-  if (S.appMode === 'pattern' && hi < 0 && !S.pattern.refSquare.picking) {
-    S.pattern.dragging = true;
-    S.pattern.dragStartMouse = { x, y };
-    S.pattern.dragStartPos = { ...S.pattern.transform };
-    E.mainCanvas.style.cursor = 'grabbing';
+function onMouseDown(e){
+  if(e.button!==0) return;
+  const{x,y}=canvasXY(e);
+  if(S.floatingIdx!==-1) return;
+  const hi=hitCorner(x,y);
+  if(hi>=0&&S.cornerMode==='drag'){S.draggingIdx=hi;E.mainCanvas.style.cursor='grabbing';return;}
+  if(S.scale.picking||S.pattern.refSquare.picking) return;
+  if(S.appMode==='pattern'&&hi<0&&!S.pattern.refSquare.picking){
+    S.pattern.dragging=true;
+    S.pattern.dragStartMouse={x,y};
+    S.pattern.dragStartPos={...S.pattern.transform};
+    E.mainCanvas.style.cursor='grabbing';
   }
 }
 
-function onMouseUp(e) {
-  if (S.draggingIdx >= 0) {
-    S.draggingIdx = -1;
-    saveState();
-    E.mainCanvas.style.cursor = 'default';
-  }
-  if (S.pattern.dragging) {
-    S.pattern.dragging = false;
-    saveState();
-    E.mainCanvas.style.cursor = 'default';
-  }
+function onMouseUp(){
+  if(S.draggingIdx>=0){S.draggingIdx=-1;saveState();E.mainCanvas.style.cursor='default';}
+  if(S.pattern.dragging){S.pattern.dragging=false;saveState();E.mainCanvas.style.cursor='default';}
 }
 
-function onDblClick(e) {
-  if (S.cornerMode !== 'float' || _suppressDblClick) return;
-  const { x, y } = canvasXY(e);
-  const hi = hitTestCorner(x, y);
-  if (hi >= 0 && S.floatingIdx === -1) {
-    S.floatingIdx = hi;
+function onDblClick(e){
+  if(S.cornerMode!=='float'||_noDbClick) return;
+  const{x,y}=canvasXY(e);
+  const hi=hitCorner(x,y);
+  if(hi>=0&&S.floatingIdx===-1){
+    S.floatingIdx=hi;
     E.floatToolbar.classList.remove('hidden');
-    E.ftCornerName.textContent = CORNER_NAMES[hi];
-    E.mainCanvas.style.cursor = 'none';
+    E.ftCornerName.textContent=CORNER_NAMES[hi];
+    E.mainCanvas.style.cursor='none';
   }
 }
 
-function onClick(e) {
-  if (e.detail > 1) return; // ignore click part of dblclick
-  const { x, y } = canvasXY(e);
-
-  // Lock floating corner
-  if (S.floatingIdx !== -1) {
-    S.floatingIdx = -1;
-    E.floatToolbar.classList.add('hidden');
-    E.mainCanvas.style.cursor = 'default';
-    // Suppress the dblclick that follows the second click of this locking action
-    _suppressDblClick = true;
-    setTimeout(() => { _suppressDblClick = false; }, 400);
-    saveState();
+function onClick(e){
+  if(e.detail>1) return;
+  const{x,y}=canvasXY(e);
+  if(S.floatingIdx!==-1){
+    S.floatingIdx=-1; E.floatToolbar.classList.add('hidden');
+    E.mainCanvas.style.cursor='default';
+    _noDbClick=true; setTimeout(()=>{_noDbClick=false;},400);
+    saveState(); return;
+  }
+  if(S.appMode==='calibrate'&&S.scale.picking){
+    S.scale.points.push({x,y});
+    if(S.scale.points.length===1) E.scaleHint.textContent='Now click the second point…';
+    else if(S.scale.points.length>=2){ S.scale.picking=false; showScaleDistUI(); }
     return;
   }
-
-  // Scale reference picking
-  if (S.appMode === 'calibrate' && S.scale.picking) {
-    S.scale.points.push({ x, y });
-    if (S.scale.points.length === 1) {
-      E.scaleHint.textContent = 'Now click the second point on canvas…';
-    } else if (S.scale.points.length >= 2) {
-      S.scale.picking = false;
-      showScaleDistanceUI();
-    }
-    return;
-  }
-
-  // Pattern reference square picking
-  if (S.appMode === 'pattern' && S.pattern.refSquare.picking) {
-    S.pattern.refSquare.points.push({ x, y });
-    if (S.pattern.refSquare.points.length === 1) {
-      E.refSqHint.textContent = 'Click the opposite corner of the reference square…';
-    } else if (S.pattern.refSquare.points.length >= 2) {
-      S.pattern.refSquare.picking = false;
-      E.refSqActiveRow.classList.add('hidden');
-      E.refSqIdleRow.classList.remove('hidden');
-      E.refSqControls.classList.remove('hidden');
-      E.refSqHint.textContent = 'Enter the real size and click Apply Scale.';
+  if(S.appMode==='pattern'&&S.pattern.refSquare.picking){
+    S.pattern.refSquare.points.push({x,y});
+    if(S.pattern.refSquare.points.length===1)
+      E.refSqHint.textContent='Click the opposite corner of the reference square…';
+    else if(S.pattern.refSquare.points.length>=2){
+      S.pattern.refSquare.picking=false;
+      E.refSqActive.classList.add('hidden'); E.refSqIdle.classList.remove('hidden');
+      E.refSqCtrls.classList.remove('hidden');
+      E.refSqHint.textContent='Enter the real size, then click Apply Scale.';
     }
   }
 }
 
-// ═══════════════════════════════════════════════════════════════
-// KEYBOARD
-// ═══════════════════════════════════════════════════════════════
-document.addEventListener('keydown', (e) => {
-  // Project mode exit
-  if (S.projectMode) {
-    if (e.key === 'p' || e.key === 'P' || e.key === 'Escape') {
-      exitProjectMode();
-    }
-    return;
+document.addEventListener('keydown',e=>{
+  if(S.projectMode){ if(e.key==='p'||e.key==='P'||e.key==='Escape') exitProject(); return; }
+  if(S.floatingIdx!==-1&&['ArrowUp','ArrowDown','ArrowLeft','ArrowRight'].includes(e.key)){
+    e.preventDefault(); const s=e.shiftKey?10:1; const c=S.corners[S.floatingIdx];
+    if(e.key==='ArrowUp')c.y-=s; if(e.key==='ArrowDown')c.y+=s;
+    if(e.key==='ArrowLeft')c.x-=s; if(e.key==='ArrowRight')c.x+=s;
+    if(S.floatTools.snap) snapCornerToGrid(S.floatingIdx);
   }
-
-  // Float mode nudge
-  if (S.floatingIdx !== -1 && ['ArrowUp','ArrowDown','ArrowLeft','ArrowRight'].includes(e.key)) {
-    e.preventDefault();
-    const step = e.shiftKey ? 10 : 1;
-    const c = S.corners[S.floatingIdx];
-    if (e.key === 'ArrowUp')    c.y -= step;
-    if (e.key === 'ArrowDown')  c.y += step;
-    if (e.key === 'ArrowLeft')  c.x -= step;
-    if (e.key === 'ArrowRight') c.x += step;
-    if (S.floatTools.snap) snapCornerToGrid(S.floatingIdx);
+  if(e.key==='Escape'&&S.floatingIdx!==-1){
+    S.floatingIdx=-1; E.floatToolbar.classList.add('hidden');
+    E.mainCanvas.style.cursor='default'; saveState();
   }
-
-  if (e.key === 'Escape' && S.floatingIdx !== -1) {
-    S.floatingIdx = -1;
-    E.floatToolbar.classList.add('hidden');
-    E.mainCanvas.style.cursor = 'default';
-    saveState();
-  }
-
-  if (e.key === 'p' || e.key === 'P') {
-    enterProjectMode();
+  if(e.key==='p'||e.key==='P') enterProject();
+  // Arrow key panning in pattern mode when no corner is floating
+  if(S.appMode==='pattern'&&S.floatingIdx===-1&&['ArrowUp','ArrowDown','ArrowLeft','ArrowRight'].includes(e.key)){
+    e.preventDefault(); const s=e.shiftKey?50:10;
+    if(e.key==='ArrowUp')   S.pattern.transform.y+=s;
+    if(e.key==='ArrowDown') S.pattern.transform.y-=s;
+    if(e.key==='ArrowLeft') S.pattern.transform.x+=s;
+    if(e.key==='ArrowRight')S.pattern.transform.x-=s;
+    updateXYInputs();
   }
 });
 
-// ═══════════════════════════════════════════════════════════════
+// ═══════════════════════════════════════════════════════════
 // PROJECT MODE
-// ═══════════════════════════════════════════════════════════════
-function enterProjectMode() {
-  S.projectMode = true;
-  document.body.classList.add('project-mode');
-  E.canvasArea.requestFullscreen?.().catch(() => {});
-}
+// ═══════════════════════════════════════════════════════════
+function enterProject(){ S.projectMode=true; document.body.classList.add('proj-mode'); E.canvasArea.requestFullscreen?.().catch(()=>{}); }
+function exitProject(){ S.projectMode=false; document.body.classList.remove('proj-mode'); if(document.fullscreenElement) document.exitFullscreen?.(); }
+document.addEventListener('fullscreenchange',()=>{ if(!document.fullscreenElement&&S.projectMode) exitProject(); setTimeout(setupCanvas,50); });
 
-function exitProjectMode() {
-  S.projectMode = false;
-  document.body.classList.remove('project-mode');
-  if (document.fullscreenElement) document.exitFullscreen?.();
-}
-
-document.addEventListener('fullscreenchange', () => {
-  if (!document.fullscreenElement && S.projectMode) exitProjectMode();
-  setTimeout(setupCanvas, 50);
-});
-
-// ═══════════════════════════════════════════════════════════════
-// SCALE REFERENCE UI HELPERS
-// ═══════════════════════════════════════════════════════════════
-function showScaleDistanceUI() {
-  E.scaleDistRow.classList.remove('hidden');
-  E.scaleActRow.classList.remove('hidden');
+// ═══════════════════════════════════════════════════════════
+// SCALE UI
+// ═══════════════════════════════════════════════════════════
+function showScaleDistUI(){
+  E.scaleDistRow.classList.remove('hidden'); E.scaleActRow.classList.remove('hidden');
   E.scalePickRow.classList.add('hidden');
-  E.scaleHint.textContent = 'Enter the real-world distance between the two points.';
+  E.scaleHint.textContent='Enter the real-world distance between the two points.';
 }
-
-function lockScale() {
-  if (S.scale.points.length < 2) return;
-  const d = dist(S.scale.points[0], S.scale.points[1]);
-  S.scale.realDist = parseFloat(document.getElementById('scale-distance').value) || 1;
-  S.scale.ppu = d / S.scale.realDist;
-  S.scale.locked = true;
-  const unit = S.grid.unit === 'inches' ? 'in' : 'cm';
-  E.scaleLockedInfo.textContent = `Locked: ${S.scale.ppu.toFixed(1)} px/${unit}`;
+function lockScale(){
+  if(S.scale.points.length<2) return;
+  const d=dist(S.scale.points[0],S.scale.points[1]);
+  S.scale.realDist=parseFloat(document.getElementById('scale-distance').value)||1;
+  S.scale.ppu=d/S.scale.realDist; S.scale.locked=true;
+  const u=S.grid.unit==='in'?'in':'cm';
+  E.scaleLockedInfo.textContent=`Locked: ${S.scale.ppu.toFixed(1)} px/${u}`;
   E.scaleLockedInfo.classList.remove('hidden');
-  E.scaleDistRow.classList.add('hidden');
-  E.scaleActRow.classList.add('hidden');
-  E.scaleHint.textContent = 'Scale locked.';
-  saveState();
+  E.scaleDistRow.classList.add('hidden'); E.scaleActRow.classList.add('hidden');
+  E.scaleHint.textContent='Scale locked.'; saveState();
 }
-
-function clearScale() {
-  S.scale.points = [];
-  S.scale.locked = false;
-  S.scale.picking = false;
+function clearScale(){
+  S.scale.points=[]; S.scale.locked=false; S.scale.picking=false;
   E.scaleLockedInfo.classList.add('hidden');
-  E.scaleDistRow.classList.add('hidden');
-  E.scaleActRow.classList.add('hidden');
+  E.scaleDistRow.classList.add('hidden'); E.scaleActRow.classList.add('hidden');
   E.scalePickRow.classList.remove('hidden');
-  E.scaleHint.textContent = 'Click two points on the canvas to set real-world scale.';
+  E.scaleHint.textContent='Click two points to verify real-world scale.';
 }
 
-// ═══════════════════════════════════════════════════════════════
-// PATTERN TRANSFORM HELPERS
-// ═══════════════════════════════════════════════════════════════
-function updatePatternXY() {
-  document.getElementById('pat-x').value = Math.round(S.pattern.transform.x);
-  document.getElementById('pat-y').value = Math.round(S.pattern.transform.y);
+// ═══════════════════════════════════════════════════════════
+// PERSISTENCE
+// ═══════════════════════════════════════════════════════════
+function saveState(){
+  try{
+    localStorage.setItem('linea_v2',JSON.stringify({
+      corners:S.corners, grid:S.grid,
+      board:S.board, projector:S.projector,
+      scale:{ppu:S.scale.ppu,locked:S.scale.locked,realDist:S.scale.realDist,points:S.scale.points},
+      globalInvert:S.globalInvert,
+      pattern:{transform:S.pattern.transform,lineColor:S.pattern.lineColor,
+        highlightColor:S.pattern.highlightColor,lineWeight:S.pattern.lineWeight,
+        globalInvert:S.pattern.globalInvert,
+        groups:S.pattern.groups.map(g=>({id:g.id,dashKey:g.dashKey,dash:g.dash,label:g.label,
+          vis:g.vis,color:g.color,active:g.active,invert:g.invert}))},
+    }));
+  }catch(e){}
 }
 
-function centerPattern() {
-  if (!S.pattern.viewport) return;
-  S.pattern.transform.x = (S.canvasW - S.pattern.viewport.width * S.pattern.transform.scale) / 2;
-  S.pattern.transform.y = (S.canvasH - S.pattern.viewport.height * S.pattern.transform.scale) / 2;
-  updatePatternXY();
-}
-
-// ═══════════════════════════════════════════════════════════════
-// PERSISTENCE (localStorage)
-// ═══════════════════════════════════════════════════════════════
-function saveState() {
-  try {
-    const data = {
-      corners: S.corners,
-      grid: S.grid,
-      scale: { ppu: S.scale.ppu, locked: S.scale.locked, realDist: S.scale.realDist, points: S.scale.points },
-      globalInvert: S.globalInvert,
-      pattern: {
-        transform: S.pattern.transform,
-        lineColor: S.pattern.lineColor,
-        highlightColor: S.pattern.highlightColor,
-        lineWeight: S.pattern.lineWeight,
-        globalInvert: S.pattern.globalInvert,
-        groups: S.pattern.groups.map(g => ({
-          id: g.id, dashKey: g.dashKey, dash: g.dash, label: g.label,
-          vis: g.vis, color: g.color, weight: g.weight, active: g.active, invert: g.invert,
-        })),
-      },
-    };
-    localStorage.setItem('linea_state', JSON.stringify(data));
-  } catch (e) { /* storage full */ }
-}
-
-function loadState() {
-  try {
-    const raw = localStorage.getItem('linea_state');
-    if (!raw) return;
-    const data = JSON.parse(raw);
-
-    if (data.corners && data.corners.length === 4) {
-      S.corners = data.corners;
-      S.cornersInit = true;
+function loadState(){
+  try{
+    const raw=localStorage.getItem('linea_v2'); if(!raw) return;
+    const d=JSON.parse(raw);
+    if(d.corners?.length===4){S.corners=d.corners;S.cornersInit=true;}
+    if(d.grid) Object.assign(S.grid,d.grid);
+    if(d.board) Object.assign(S.board,d.board);
+    if(d.projector) Object.assign(S.projector,d.projector);
+    if(d.scale){Object.assign(S.scale,d.scale);}
+    if(d.globalInvert!==undefined) S.globalInvert=d.globalInvert;
+    if(d.pattern){
+      Object.assign(S.pattern.transform,d.pattern.transform??{});
+      S.pattern.lineColor=d.pattern.lineColor??'#000000';
+      S.pattern.highlightColor=d.pattern.highlightColor??'#ff2222';
+      S.pattern.lineWeight=d.pattern.lineWeight??1;
+      S.pattern.globalInvert=d.pattern.globalInvert??false;
     }
-    if (data.grid) Object.assign(S.grid, data.grid);
-    if (data.scale) {
-      S.scale.ppu = data.scale.ppu ?? 80;
-      S.scale.locked = data.scale.locked ?? false;
-      S.scale.realDist = data.scale.realDist ?? 1;
-      S.scale.points = data.scale.points ?? [];
-    }
-    if (data.globalInvert !== undefined) S.globalInvert = data.globalInvert;
-    if (data.pattern) {
-      Object.assign(S.pattern.transform, data.pattern.transform ?? {});
-      S.pattern.lineColor = data.pattern.lineColor ?? '#000000';
-      S.pattern.highlightColor = data.pattern.highlightColor ?? '#ff2222';
-      S.pattern.lineWeight = data.pattern.lineWeight ?? 1;
-      S.pattern.globalInvert = data.pattern.globalInvert ?? false;
-    }
-
-    applyStateToUI();
-  } catch (e) { /* ignore */ }
+  }catch(e){}
 }
 
-function applyStateToUI() {
-  const g = S.grid;
-  document.getElementById('unit-inches').classList.toggle('active', g.unit === 'inches');
-  document.getElementById('unit-cm').classList.toggle('active', g.unit === 'cm');
-  document.getElementById('cell-size').value = g.cellSize;
-  document.getElementById('grid-color').value = g.color;
-  document.getElementById('grid-opacity').value = g.opacity;
-  document.getElementById('grid-opacity-val').textContent = Math.round(g.opacity * 100) + '%';
-  document.getElementById('grid-weight').value = g.lineWeight;
-  document.getElementById('grid-weight-val').textContent = g.lineWeight + 'px';
-
-  const scaleUnitLbl = document.getElementById('scale-unit-lbl');
-  if (scaleUnitLbl) scaleUnitLbl.textContent = g.unit === 'inches' ? 'in' : 'cm';
-  const refSqUnit = document.getElementById('ref-sq-unit-lbl');
-  if (refSqUnit) refSqUnit.textContent = g.unit === 'inches' ? 'in' : 'cm';
-
-  if (S.scale.locked && S.scale.points.length >= 2) {
-    const unit = g.unit === 'inches' ? 'in' : 'cm';
-    E.scaleLockedInfo.textContent = `Locked: ${S.scale.ppu.toFixed(1)} px/${unit}`;
-    E.scaleLockedInfo.classList.remove('hidden');
-    E.scalePickRow.classList.add('hidden');
-    E.scaleHint.textContent = 'Scale locked.';
-  }
-
-  const pt = S.pattern.transform;
-  document.getElementById('pat-x').value = Math.round(pt.x);
-  document.getElementById('pat-y').value = Math.round(pt.y);
-  document.getElementById('pat-rot-slider').value = pt.rotation;
-  document.getElementById('pat-rot-num').value = pt.rotation;
-  document.getElementById('pat-scale-slider').value = pt.scale;
-  document.getElementById('pat-scale-val').textContent = Math.round(pt.scale * 100) + '%';
-  document.getElementById('pat-opacity-slider').value = pt.opacity;
-  document.getElementById('pat-opacity-val').textContent = Math.round(pt.opacity * 100) + '%';
-  document.getElementById('line-color').value = S.pattern.lineColor;
-  document.getElementById('highlight-color').value = S.pattern.highlightColor;
-  document.getElementById('line-weight-slider').value = S.pattern.lineWeight;
-  document.getElementById('line-weight-val').textContent = S.pattern.lineWeight + 'px';
-
-  document.getElementById('btn-global-invert').classList.toggle('active', S.globalInvert);
-}
-
-// ═══════════════════════════════════════════════════════════════
+// ═══════════════════════════════════════════════════════════
 // UI BINDINGS
-// ═══════════════════════════════════════════════════════════════
-function bindUI() {
+// ═══════════════════════════════════════════════════════════
+function bindUI(){
+  // Mode tabs
+  document.querySelectorAll('.mode-tab').forEach(t=>t.addEventListener('click',()=>{
+    S.appMode=t.dataset.mode;
+    document.querySelectorAll('.mode-tab').forEach(x=>x.classList.toggle('active',x===t));
+    document.getElementById('panel-calibrate').classList.toggle('hidden',S.appMode!=='calibrate');
+    document.getElementById('panel-pattern').classList.toggle('hidden',S.appMode!=='pattern');
+  }));
 
-  // ── Mode tabs ──
-  document.querySelectorAll('.mode-tab').forEach(tab => {
-    tab.addEventListener('click', () => {
-      S.appMode = tab.dataset.mode;
-      document.querySelectorAll('.mode-tab').forEach(t => t.classList.toggle('active', t === tab));
-      document.getElementById('panel-calibrate').classList.toggle('hidden', S.appMode !== 'calibrate');
-      document.getElementById('panel-pattern').classList.toggle('hidden', S.appMode !== 'pattern');
+  // Board/projector presets
+  populatePresets();
+  document.getElementById('board-preset').addEventListener('change',onBoardPresetChange);
+  document.getElementById('proj-preset').addEventListener('change',onProjPresetChange);
+  document.getElementById('board-w').addEventListener('input',()=>{
+    S.board.w=parseFloat(document.getElementById('board-w').value)||S.board.w; updateSetupInfo();});
+  document.getElementById('board-h').addEventListener('input',()=>{
+    S.board.h=parseFloat(document.getElementById('board-h').value)||S.board.h; updateSetupInfo();});
+  document.getElementById('proj-w').addEventListener('input',()=>{
+    S.projector.w=parseInt(document.getElementById('proj-w').value)||S.projector.w; updateSetupInfo();});
+  document.getElementById('proj-h').addEventListener('input',()=>{
+    S.projector.h=parseInt(document.getElementById('proj-h').value)||S.projector.h; updateSetupInfo();});
+  document.getElementById('btn-apply-setup').addEventListener('click',applyBoardSetup);
+  onBoardPresetChange(); onProjPresetChange();
+
+  // Grid unit
+  const setUnit=u=>{
+    S.grid.unit=u;
+    document.getElementById('unit-in').classList.toggle('active',u==='in');
+    document.getElementById('unit-cm').classList.toggle('active',u==='cm');
+    document.getElementById('scale-unit-lbl').textContent=u;
+    document.getElementById('ref-sq-unit-lbl').textContent=u;
+    saveState();
+  };
+  document.getElementById('unit-in').addEventListener('click',()=>setUnit('in'));
+  document.getElementById('unit-cm').addEventListener('click',()=>setUnit('cm'));
+  document.getElementById('cell-size').addEventListener('change',e=>{S.grid.cellSize=parseFloat(e.target.value);saveState();});
+  document.getElementById('grid-color').addEventListener('input',e=>{S.grid.color=e.target.value;saveState();});
+  const sliderVal=(id,vid,fmt,key)=>{
+    const s=document.getElementById(id),vl=vid?document.getElementById(vid):null;
+    s.addEventListener('input',e=>{
+      const v=parseFloat(e.target.value);
+      const keys=key.split('.');let o=S;
+      for(let i=0;i<keys.length-1;i++) o=o[keys[i]];
+      o[keys[keys.length-1]]=v;
+      if(vl) vl.textContent=fmt(v);
+      saveState();
     });
-  });
+  };
+  sliderVal('grid-opacity','grid-opacity-val',v=>Math.round(v*100)+'%','grid.opacity');
+  sliderVal('grid-weight','grid-weight-val',v=>v+'px','grid.lineWeight');
 
-  // ── Grid unit ──
-  function setUnit(u) {
-    S.grid.unit = u;
-    document.getElementById('unit-inches').classList.toggle('active', u === 'inches');
-    document.getElementById('unit-cm').classList.toggle('active', u === 'cm');
-    const lbl = u === 'inches' ? 'in' : 'cm';
-    document.getElementById('scale-unit-lbl').textContent = lbl;
-    document.getElementById('ref-sq-unit-lbl').textContent = lbl;
-    saveState();
-  }
-  document.getElementById('unit-inches').addEventListener('click', () => setUnit('inches'));
-  document.getElementById('unit-cm').addEventListener('click', () => setUnit('cm'));
-
-  // ── Cell size ──
-  document.getElementById('cell-size').addEventListener('change', (e) => {
-    S.grid.cellSize = parseFloat(e.target.value);
-    saveState();
-  });
-
-  // ── Grid color / opacity / weight ──
-  document.getElementById('grid-color').addEventListener('input', (e) => { S.grid.color = e.target.value; saveState(); });
-  document.getElementById('grid-opacity').addEventListener('input', (e) => {
-    S.grid.opacity = parseFloat(e.target.value);
-    document.getElementById('grid-opacity-val').textContent = Math.round(S.grid.opacity * 100) + '%';
-    saveState();
-  });
-  document.getElementById('grid-weight').addEventListener('input', (e) => {
-    S.grid.lineWeight = parseFloat(e.target.value);
-    document.getElementById('grid-weight-val').textContent = S.grid.lineWeight + 'px';
-    saveState();
-  });
-
-  // ── Corner mode ──
-  document.getElementById('corner-drag-mode').addEventListener('click', () => {
-    S.cornerMode = 'drag';
+  // Corner mode
+  document.getElementById('corner-drag-mode').addEventListener('click',()=>{
+    S.cornerMode='drag';
     document.getElementById('corner-drag-mode').classList.add('active');
     document.getElementById('corner-float-mode').classList.remove('active');
     E.floatModeInfo.classList.add('hidden');
-    if (S.floatingIdx !== -1) {
-      S.floatingIdx = -1;
-      E.floatToolbar.classList.add('hidden');
-    }
+    if(S.floatingIdx!==-1){S.floatingIdx=-1;E.floatToolbar.classList.add('hidden');}
   });
-  document.getElementById('corner-float-mode').addEventListener('click', () => {
-    S.cornerMode = 'float';
+  document.getElementById('corner-float-mode').addEventListener('click',()=>{
+    S.cornerMode='float';
     document.getElementById('corner-float-mode').classList.add('active');
     document.getElementById('corner-drag-mode').classList.remove('active');
     E.floatModeInfo.classList.remove('hidden');
   });
 
-  // ── Float tools (sidebar) ──
-  function bindFloatTool(sbId, ftId, key) {
-    const sbBtn = document.getElementById(sbId);
-    const ftBtn = document.getElementById(ftId);
-    function toggle() {
-      S.floatTools[key] = !S.floatTools[key];
-      sbBtn.classList.toggle('active', S.floatTools[key]);
-      ftBtn.classList.toggle('active', S.floatTools[key]);
-      if (key === 'loupe' && !S.floatTools.loupe) E.loupeCanvas.style.display = 'none';
-    }
-    sbBtn.addEventListener('click', toggle);
-    ftBtn.addEventListener('click', toggle);
-  }
-  bindFloatTool('sb-loupe', 'ft-loupe', 'loupe');
-  bindFloatTool('sb-snap', 'ft-snap', 'snap');
-  bindFloatTool('sb-crosshair', 'ft-crosshair', 'crosshair');
-
-  E.ftCancel.addEventListener('click', () => {
-    S.floatingIdx = -1;
-    E.floatToolbar.classList.add('hidden');
-    E.mainCanvas.style.cursor = 'default';
+  // Float tools
+  const ft=(sbId,ftId,key)=>{
+    const toggle=()=>{
+      S.floatTools[key]=!S.floatTools[key];
+      document.getElementById(sbId).classList.toggle('active',S.floatTools[key]);
+      document.getElementById(ftId).classList.toggle('active',S.floatTools[key]);
+      if(key==='loupe'&&!S.floatTools.loupe) E.loupeCanvas.style.display='none';
+    };
+    document.getElementById(sbId).addEventListener('click',toggle);
+    document.getElementById(ftId).addEventListener('click',toggle);
+  };
+  ft('sb-loupe','ft-loupe','loupe');
+  ft('sb-snap','ft-snap','snap');
+  ft('sb-crosshair','ft-crosshair','crosshair');
+  E.ftCancel.addEventListener('click',()=>{
+    S.floatingIdx=-1; E.floatToolbar.classList.add('hidden'); E.mainCanvas.style.cursor='default';
   });
 
-  // ── Scale reference ──
-  document.getElementById('btn-pick-scale').addEventListener('click', () => {
-    S.scale.points = [];
-    S.scale.picking = true;
-    S.scale.locked = false;
-    E.scaleLockedInfo.classList.add('hidden');
-    E.scalePickRow.classList.add('hidden');
-    E.scaleHint.textContent = 'Click point 1 on canvas…';
+  // Scale verify
+  document.getElementById('btn-pick-scale').addEventListener('click',()=>{
+    S.scale.points=[]; S.scale.picking=true; S.scale.locked=false;
+    E.scaleLockedInfo.classList.add('hidden'); E.scalePickRow.classList.add('hidden');
+    E.scaleHint.textContent='Click point 1 on canvas…';
   });
-  document.getElementById('btn-lock-scale').addEventListener('click', lockScale);
-  document.getElementById('btn-clear-scale').addEventListener('click', clearScale);
-  document.getElementById('scale-distance').addEventListener('change', (e) => {
-    S.scale.realDist = parseFloat(e.target.value) || 1;
-  });
+  document.getElementById('btn-lock-scale').addEventListener('click',lockScale);
+  document.getElementById('btn-clear-scale').addEventListener('click',clearScale);
+  document.getElementById('scale-distance').addEventListener('change',e=>{S.scale.realDist=parseFloat(e.target.value)||1;});
 
-  // ── Reset calibration ──
-  document.getElementById('btn-reset-cal').addEventListener('click', () => {
-    document.getElementById('modal-reset').classList.remove('hidden');
-  });
-  document.getElementById('modal-cancel').addEventListener('click', () => {
+  // Reset calibration
+  document.getElementById('btn-reset-cal').addEventListener('click',()=>document.getElementById('modal-reset').classList.remove('hidden'));
+  document.getElementById('modal-cancel').addEventListener('click',()=>document.getElementById('modal-reset').classList.add('hidden'));
+  document.getElementById('modal-confirm').addEventListener('click',()=>{
     document.getElementById('modal-reset').classList.add('hidden');
-  });
-  document.getElementById('modal-confirm').addEventListener('click', () => {
-    document.getElementById('modal-reset').classList.add('hidden');
-    S.cornersInit = false;
-    initCorners();
-    clearScale();
-    saveState();
+    S.cornersInit=false; initCorners(); clearScale(); saveState();
   });
 
-  // ── PDF upload ──
-  const pdfInput = document.getElementById('pdf-input');
-  pdfInput.addEventListener('change', (e) => {
-    const file = e.target.files[0];
-    if (file) loadPDF(file);
+  // PDF upload
+  document.getElementById('pdf-input').addEventListener('change',e=>{if(e.target.files[0]) loadPDF(e.target.files[0]);});
+  const dropL=document.getElementById('pdf-drop-label');
+  dropL.addEventListener('dragover',e=>{e.preventDefault();dropL.classList.add('drag-over');});
+  dropL.addEventListener('dragleave',()=>dropL.classList.remove('drag-over'));
+  dropL.addEventListener('drop',e=>{
+    e.preventDefault(); dropL.classList.remove('drag-over');
+    const f=e.dataTransfer.files[0]; if(f&&f.type==='application/pdf') loadPDF(f);
   });
-  const dropLabel = document.getElementById('pdf-drop-label');
-  dropLabel.addEventListener('dragover', (e) => { e.preventDefault(); dropLabel.classList.add('drag-over'); });
-  dropLabel.addEventListener('dragleave', () => dropLabel.classList.remove('drag-over'));
-  dropLabel.addEventListener('drop', (e) => {
-    e.preventDefault();
-    dropLabel.classList.remove('drag-over');
-    const file = e.dataTransfer.files[0];
-    if (file && file.type === 'application/pdf') loadPDF(file);
+  document.getElementById('btn-prev-page').addEventListener('click',async()=>{
+    if(S.pattern.pageNum>1){S.pattern.pageNum--;await renderPDFPage();}
   });
-
-  // ── Page nav ──
-  document.getElementById('btn-prev-page').addEventListener('click', async () => {
-    if (S.pattern.pageNum > 1) { S.pattern.pageNum--; await renderPDFPage(); }
+  document.getElementById('btn-next-page').addEventListener('click',async()=>{
+    if(S.pattern.pageNum<S.pattern.numPages){S.pattern.pageNum++;await renderPDFPage();}
   });
-  document.getElementById('btn-next-page').addEventListener('click', async () => {
-    if (S.pattern.pageNum < S.pattern.numPages) { S.pattern.pageNum++; await renderPDFPage(); }
+  document.getElementById('btn-open-assembly').addEventListener('click',()=>{
+    if(S.pattern.pdfDoc) initAssembly();
   });
 
-  // ── Reference square ──
-  document.getElementById('btn-start-ref-sq').addEventListener('click', () => {
-    S.pattern.refSquare.picking = true;
-    S.pattern.refSquare.points = [];
-    E.refSqIdleRow.classList.add('hidden');
-    E.refSqActiveRow.classList.remove('hidden');
-    E.refSqControls.classList.add('hidden');
-    E.refSqHint.textContent = 'Click corner 1 of the reference square on canvas…';
+  // Assembly modal
+  E.asmCols.addEventListener('change',()=>{S.assembly.cols=parseInt(E.asmCols.value)||6;buildAsmGrid();});
+  E.asmRows.addEventListener('change',()=>{S.assembly.rows=parseInt(E.asmRows.value)||7;buildAsmGrid();});
+  E.asmTrim.addEventListener('input',()=>{
+    S.assembly.overlapTrim=parseFloat(E.asmTrim.value);
+    E.asmTrimVal.textContent=S.assembly.overlapTrim.toFixed(2)+'"';
+    updateAsmSizeInfo();
   });
-  document.getElementById('btn-cancel-ref-sq').addEventListener('click', () => {
-    S.pattern.refSquare.picking = false;
-    S.pattern.refSquare.points = [];
-    E.refSqActiveRow.classList.add('hidden');
-    E.refSqIdleRow.classList.remove('hidden');
-    E.refSqControls.classList.add('hidden');
-    E.refSqHint.textContent = 'Click two corners of the pattern\'s printed reference square.';
+  document.getElementById('btn-asm-include-all').addEventListener('click',()=>{
+    S.assembly.layout.forEach(l=>l.excluded=false); buildAsmGrid();
   });
-  document.getElementById('btn-apply-ref-sq').addEventListener('click', applyRefSquareScale);
-  document.getElementById('btn-clear-ref-sq').addEventListener('click', () => {
-    S.pattern.refSquare.points = [];
-    E.refSqControls.classList.add('hidden');
-    E.refSqIdleRow.classList.remove('hidden');
-    E.refSqHint.textContent = 'Click two corners of the pattern\'s printed reference square.';
+  document.getElementById('btn-asm-exclude-first').addEventListener('click',()=>{
+    S.assembly.layout.forEach(l=>{if(l.pageNum<=2)l.excluded=true;}); buildAsmGrid();
+  });
+  document.getElementById('btn-asm-assemble').addEventListener('click',assemblePattern);
+  document.getElementById('btn-asm-cancel').addEventListener('click',()=>{
+    document.getElementById('modal-assembly').classList.add('hidden');
+    // Fall back to single-page if no assembly done yet
+    if(!S.pattern.assembled) renderPDFPage();
   });
 
-  // ── Pattern transform ──
-  document.getElementById('pat-x').addEventListener('change', (e) => {
-    S.pattern.transform.x = parseFloat(e.target.value) || 0; saveState();
+  // Pattern scale
+  document.getElementById('btn-start-ref-sq').addEventListener('click',()=>{
+    S.pattern.refSquare.picking=true; S.pattern.refSquare.points=[];
+    E.refSqIdle.classList.add('hidden'); E.refSqActive.classList.remove('hidden');
+    E.refSqCtrls.classList.add('hidden');
+    E.refSqHint.textContent='Click corner 1 of the reference square on canvas…';
   });
-  document.getElementById('pat-y').addEventListener('change', (e) => {
-    S.pattern.transform.y = parseFloat(e.target.value) || 0; saveState();
+  document.getElementById('btn-cancel-ref-sq').addEventListener('click',()=>{
+    S.pattern.refSquare.picking=false; S.pattern.refSquare.points=[];
+    E.refSqActive.classList.add('hidden'); E.refSqIdle.classList.remove('hidden');
+    E.refSqHint.textContent='Click two corners of the pattern\'s printed reference square.';
   });
-  document.getElementById('btn-center-pat').addEventListener('click', () => { centerPattern(); saveState(); });
-  document.getElementById('btn-reset-transform').addEventListener('click', () => {
-    S.pattern.transform = { x: 0, y: 0, rotation: 0, scale: 1, opacity: 1 };
-    centerPattern();
-    applyStateToUI();
-    saveState();
+  document.getElementById('btn-apply-ref-sq').addEventListener('click',applyRefSquareScale);
+  document.getElementById('btn-clear-ref-sq').addEventListener('click',()=>{
+    S.pattern.refSquare.points=[];
+    E.refSqCtrls.classList.add('hidden'); E.refSqIdle.classList.remove('hidden');
+    E.refSqHint.textContent='Click two corners of the pattern\'s printed reference square.';
   });
 
-  function bindSliderNum(sliderId, numId, valLabelId, stateKey, fmt) {
-    const slider = document.getElementById(sliderId);
-    const num = numId ? document.getElementById(numId) : null;
-    const valLabel = valLabelId ? document.getElementById(valLabelId) : null;
-    function update(v) {
-      const keys = stateKey.split('.');
-      let obj = S;
-      for (let i = 0; i < keys.length - 1; i++) obj = obj[keys[i]];
-      obj[keys[keys.length-1]] = v;
-      if (slider) slider.value = v;
-      if (num) num.value = v;
-      if (valLabel) valLabel.textContent = fmt(v);
-      saveState();
-    }
-    slider?.addEventListener('input', (e) => update(parseFloat(e.target.value)));
-    num?.addEventListener('change', (e) => update(parseFloat(e.target.value)));
-  }
+  // Transform
+  document.getElementById('pat-x').addEventListener('change',e=>{S.pattern.transform.x=parseFloat(e.target.value)||0;saveState();});
+  document.getElementById('pat-y').addEventListener('change',e=>{S.pattern.transform.y=parseFloat(e.target.value)||0;saveState();});
+  document.getElementById('btn-center-pat').addEventListener('click',()=>{centerPattern();saveState();});
+  document.getElementById('btn-reset-xform').addEventListener('click',()=>{
+    S.pattern.transform={x:0,y:0,rotation:0,scale:1,opacity:1};
+    centerPattern(); applyPatternUIFromState(); saveState();
+  });
 
-  bindSliderNum('pat-rot-slider', 'pat-rot-num', null, 'pattern.transform.rotation', v => v + '°');
-  bindSliderNum('pat-scale-slider', null, 'pat-scale-val', 'pattern.transform.scale', v => Math.round(v*100) + '%');
-  bindSliderNum('pat-opacity-slider', null, 'pat-opacity-val', 'pattern.transform.opacity', v => Math.round(v*100) + '%');
+  const bindRotScale=(slid,num,vid,key,fmt)=>{
+    const sl=document.getElementById(slid),nu=num?document.getElementById(num):null,vl=vid?document.getElementById(vid):null;
+    const upd=v=>{
+      const ks=key.split('.');let o=S;for(let i=0;i<ks.length-1;i++) o=o[ks[i]];
+      o[ks[ks.length-1]]=v;
+      sl.value=v; if(nu) nu.value=v; if(vl) vl.textContent=fmt(v); saveState();
+    };
+    sl.addEventListener('input',e=>upd(parseFloat(e.target.value)));
+    nu?.addEventListener('change',e=>upd(parseFloat(e.target.value)));
+  };
+  bindRotScale('pat-rot','pat-rot-num',null,'pattern.transform.rotation',v=>v+'°');
+  bindRotScale('pat-scale',null,'pat-scale-val','pattern.transform.scale',v=>Math.round(v*100)+'%');
+  bindRotScale('pat-opacity',null,'pat-opacity-val','pattern.transform.opacity',v=>Math.round(v*100)+'%');
 
   // Line style
-  document.getElementById('line-color').addEventListener('input', (e) => { S.pattern.lineColor = e.target.value; saveState(); });
-  document.getElementById('highlight-color').addEventListener('input', async (e) => {
-    S.pattern.highlightColor = e.target.value;
-    const activeGroup = S.pattern.groups.find(g => g.active);
-    if (activeGroup) activeGroup.canvas = await renderSingleGroup(activeGroup);
+  document.getElementById('line-color').addEventListener('input',e=>{S.pattern.lineColor=e.target.value;saveState();});
+  document.getElementById('highlight-color').addEventListener('input',async e=>{
+    S.pattern.highlightColor=e.target.value;
+    const ag=S.pattern.groups.find(g=>g.active);
+    if(ag) ag.canvas=await renderSingleGroup(ag);
     saveState();
   });
-  document.getElementById('line-weight-slider').addEventListener('input', (e) => {
-    S.pattern.lineWeight = parseFloat(e.target.value);
-    document.getElementById('line-weight-val').textContent = S.pattern.lineWeight + 'px';
+  sliderVal('line-weight','line-weight-val',v=>v+'px','pattern.lineWeight');
+
+  // Global invert
+  document.getElementById('btn-global-invert').addEventListener('click',()=>{
+    S.globalInvert=!S.globalInvert;
+    document.getElementById('btn-global-invert').classList.toggle('active',S.globalInvert);
     saveState();
   });
 
-  // ── Global invert ──
-  document.getElementById('btn-global-invert').addEventListener('click', () => {
-    S.globalInvert = !S.globalInvert;
-    document.getElementById('btn-global-invert').classList.toggle('active', S.globalInvert);
-    saveState();
-  });
-
-  // ── Project mode ──
-  document.getElementById('btn-project-mode').addEventListener('click', enterProjectMode);
+  // Project mode
+  document.getElementById('btn-project-mode').addEventListener('click',enterProject);
 }
 
-// ═══════════════════════════════════════════════════════════════
-// REFERENCE SQUARE SCALE APPLICATION
-// ═══════════════════════════════════════════════════════════════
-function applyRefSquareScale() {
-  const pts = S.pattern.refSquare.points;
-  if (pts.length < 2 || !S.pattern.viewport) return;
-  const pixelDist = dist(pts[0], pts[1]);
-  const realSize = parseFloat(document.getElementById('ref-sq-size').value) || 1;
-  // The distance in canvas space corresponds to the scale-transformed pattern
-  // We need to find the corresponding distance in viewport space
-  const canvasDist = pixelDist / S.pattern.transform.scale;
-  // ppu in pattern = canvasDist / realSize
-  // We want to scale the pattern so realSize maps to ppu units
-  const newScale = (S.scale.ppu * realSize) / (pixelDist / S.pattern.transform.scale);
-  S.pattern.transform.scale = clamp(newScale, 0.1, 8);
-  document.getElementById('pat-scale-slider').value = S.pattern.transform.scale;
-  document.getElementById('pat-scale-val').textContent = Math.round(S.pattern.transform.scale * 100) + '%';
-  E.refSqControls.classList.add('hidden');
-  E.refSqIdleRow.classList.remove('hidden');
-  E.refSqHint.textContent = 'Scale applied. Pick new points to adjust.';
-  S.pattern.refSquare.points = [];
-  saveState();
+function applyPatternUIFromState(){
+  const t=S.pattern.transform;
+  document.getElementById('pat-x').value=Math.round(t.x);
+  document.getElementById('pat-y').value=Math.round(t.y);
+  document.getElementById('pat-rot').value=t.rotation;
+  document.getElementById('pat-rot-num').value=t.rotation;
+  document.getElementById('pat-scale').value=t.scale;
+  document.getElementById('pat-scale-val').textContent=Math.round(t.scale*100)+'%';
+  document.getElementById('pat-opacity').value=t.opacity;
+  document.getElementById('pat-opacity-val').textContent=Math.round(t.opacity*100)+'%';
 }
 
-// ═══════════════════════════════════════════════════════════════
+// ═══════════════════════════════════════════════════════════
 // INIT
-// ═══════════════════════════════════════════════════════════════
-function init() {
+// ═══════════════════════════════════════════════════════════
+function init(){
   setupCanvas();
   loadState();
+  const allZero=S.corners.every(c=>c.x===0&&c.y===0);
+  if(allZero) initCorners();
 
-  // Re-init corners if they're all at origin (fresh start)
-  const allZero = S.corners.every(c => c.x === 0 && c.y === 0);
-  if (allZero) initCorners();
-
-  applyStateToUI();
+  // Sync UI from loaded state
+  document.getElementById('grid-opacity').value=S.grid.opacity;
+  document.getElementById('grid-opacity-val').textContent=Math.round(S.grid.opacity*100)+'%';
+  document.getElementById('grid-weight').value=S.grid.lineWeight;
+  document.getElementById('grid-weight-val').textContent=S.grid.lineWeight+'px';
+  document.getElementById('grid-color').value=S.grid.color;
+  document.getElementById('cell-size').value=S.grid.cellSize;
+  document.getElementById('unit-in').classList.toggle('active',S.grid.unit==='in');
+  document.getElementById('unit-cm').classList.toggle('active',S.grid.unit==='cm');
+  document.getElementById('scale-unit-lbl').textContent=S.grid.unit;
+  document.getElementById('ref-sq-unit-lbl').textContent=S.grid.unit;
+  document.getElementById('line-color').value=S.pattern.lineColor;
+  document.getElementById('highlight-color').value=S.pattern.highlightColor;
+  document.getElementById('btn-global-invert').classList.toggle('active',S.globalInvert);
+  if(S.scale.locked&&S.scale.points.length>=2){
+    E.scaleLockedInfo.textContent=`Locked: ${S.scale.ppu.toFixed(1)} px/${S.grid.unit}`;
+    E.scaleLockedInfo.classList.remove('hidden');
+    E.scalePickRow.classList.add('hidden');
+    E.scaleHint.textContent='Scale locked.';
+  }
+  applyPatternUIFromState();
   bindUI();
   startRenderLoop();
 }
