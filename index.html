@@ -1,0 +1,2039 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Project Linea — Pattern Projector</title>
+  <style>
+    :root {
+      --bg: #111;
+      --sidebar-bg: #1c1c1c;
+      --sidebar-border: #2a2a2a;
+      --section-border: #2e2e2e;
+      --text: #e0e0e0;
+      --text-dim: #888;
+      --text-muted: #555;
+      --accent: #4fa3ff;
+      --accent-hover: #74b8ff;
+      --danger: #ff5252;
+      --success: #44d988;
+      --warn: #ffb347;
+      --input-bg: #252525;
+      --input-border: #3a3a3a;
+      --btn-bg: #2a2a2a;
+      --btn-hover: #363636;
+      --sidebar-w: 284px;
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    html, body {
+      width: 100%; height: 100%;
+      overflow: hidden;
+      background: var(--bg);
+      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+      font-size: 12px;
+      line-height: 1.4;
+    }
+
+    #app { display: flex; width: 100%; height: 100vh; }
+
+    /* ── Sidebar ── */
+    #sidebar {
+      width: var(--sidebar-w);
+      min-width: var(--sidebar-w);
+      background: var(--sidebar-bg);
+      border-right: 1px solid var(--sidebar-border);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    .mode-tabs {
+      display: flex;
+      border-bottom: 1px solid var(--sidebar-border);
+      flex-shrink: 0;
+    }
+    .mode-tab {
+      flex: 1;
+      padding: 10px 4px;
+      background: none;
+      border: none;
+      border-right: 1px solid var(--sidebar-border);
+      color: var(--text-dim);
+      cursor: pointer;
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 0.4px;
+      text-transform: uppercase;
+      transition: color 0.15s, background 0.15s;
+    }
+    .mode-tab:last-child { border-right: none; }
+    .mode-tab:hover { color: var(--text); background: var(--btn-hover); }
+    .mode-tab.active { color: var(--accent); border-bottom: 2px solid var(--accent); margin-bottom: -1px; background: rgba(79,163,255,0.06); }
+
+    .mode-panel { display: flex; flex-direction: column; flex: 1; overflow-y: auto; }
+    .mode-panel.hidden { display: none; }
+
+    .section {
+      border-bottom: 1px solid var(--section-border);
+      padding: 10px 12px;
+    }
+    .section:last-child { border-bottom: none; }
+
+    .section-title {
+      font-size: 10px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.8px;
+      color: var(--text-muted);
+      margin-bottom: 8px;
+    }
+    .section-subtitle {
+      font-size: 10px;
+      font-weight: 600;
+      color: var(--text-dim);
+      margin: 6px 0 4px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .row {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      margin-bottom: 5px;
+    }
+    .row:last-child { margin-bottom: 0; }
+
+    .row label {
+      color: var(--text-dim);
+      font-size: 11px;
+      min-width: 64px;
+      flex-shrink: 0;
+    }
+
+    .val-label {
+      color: var(--text-dim);
+      font-size: 11px;
+      min-width: 32px;
+      text-align: right;
+      flex-shrink: 0;
+    }
+
+    .hint {
+      font-size: 11px;
+      color: var(--text-muted);
+      line-height: 1.5;
+      margin-bottom: 6px;
+    }
+    .hint.success { color: var(--success); }
+    .hint.warn { color: var(--warn); }
+
+    /* ── Inputs ── */
+    input[type=range] {
+      flex: 1;
+      height: 4px;
+      accent-color: var(--accent);
+      cursor: pointer;
+    }
+    input[type=color] {
+      width: 28px; height: 22px;
+      border: 1px solid var(--input-border);
+      background: none;
+      cursor: pointer;
+      padding: 1px;
+      border-radius: 3px;
+    }
+    select, input[type=text], input[type=number] {
+      background: var(--input-bg);
+      border: 1px solid var(--input-border);
+      color: var(--text);
+      padding: 3px 6px;
+      border-radius: 4px;
+      font-size: 11px;
+      outline: none;
+    }
+    select:focus, input[type=text]:focus, input[type=number]:focus {
+      border-color: var(--accent);
+    }
+    input[type=number] { width: 56px; text-align: right; }
+
+    /* ── Buttons ── */
+    button {
+      background: var(--btn-bg);
+      border: 1px solid var(--input-border);
+      color: var(--text);
+      padding: 4px 10px;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 11px;
+      transition: background 0.12s, border-color 0.12s;
+      white-space: nowrap;
+    }
+    button:hover { background: var(--btn-hover); border-color: #555; }
+    button.active { background: rgba(79,163,255,0.2); border-color: var(--accent); color: var(--accent); }
+    button.small { padding: 3px 7px; font-size: 10px; }
+    button.danger { border-color: var(--danger); color: var(--danger); }
+    button.danger:hover { background: rgba(255,82,82,0.15); }
+    button.accent { background: var(--accent); border-color: var(--accent); color: #000; font-weight: 600; }
+    button.accent:hover { background: var(--accent-hover); }
+    button.btn-full { width: 100%; margin-bottom: 5px; padding: 6px; }
+    button.btn-full:last-child { margin-bottom: 0; }
+
+    .btn-group { display: flex; gap: 2px; }
+    .btn-group button.small { border-radius: 3px; }
+
+    /* ── Tool row ── */
+    .tool-row { display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 6px; }
+    .tool-btn {
+      padding: 3px 8px;
+      font-size: 10px;
+      border-radius: 3px;
+    }
+
+    /* ── File drop ── */
+    .file-drop {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border: 1px dashed var(--input-border);
+      border-radius: 5px;
+      padding: 12px 8px;
+      cursor: pointer;
+      text-align: center;
+      color: var(--text-dim);
+      font-size: 11px;
+      transition: border-color 0.15s, background 0.15s;
+      margin-bottom: 6px;
+    }
+    .file-drop:hover { border-color: var(--accent); background: rgba(79,163,255,0.05); }
+    .file-drop.drag-over { border-color: var(--accent); background: rgba(79,163,255,0.1); }
+
+    /* ── Sizes panel ── */
+    .size-entry {
+      border: 1px solid var(--section-border);
+      border-radius: 5px;
+      padding: 6px 7px;
+      margin-bottom: 5px;
+    }
+    .size-entry-header {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      margin-bottom: 5px;
+    }
+    .dash-swatch {
+      width: 36px;
+      height: 14px;
+      flex-shrink: 0;
+      border-radius: 2px;
+    }
+    .size-label-input {
+      flex: 1;
+      background: transparent;
+      border: none;
+      color: var(--text);
+      font-size: 11px;
+      padding: 0;
+      outline: none;
+      border-bottom: 1px solid transparent;
+    }
+    .size-label-input:focus { border-bottom-color: var(--accent); }
+    .size-entry-vis { display: flex; gap: 2px; }
+    .vis-btn { padding: 2px 5px; font-size: 10px; border-radius: 3px; }
+    .vis-btn.active-show { background: rgba(68,217,136,0.2); border-color: var(--success); color: var(--success); }
+    .vis-btn.active-ghost { background: rgba(255,179,71,0.2); border-color: var(--warn); color: var(--warn); }
+    .vis-btn.active-hide { background: rgba(255,82,82,0.15); border-color: var(--danger); color: var(--danger); }
+    .size-entry-controls { display: flex; align-items: center; gap: 5px; margin-top: 4px; }
+    .active-size-btn { font-size: 10px; padding: 2px 5px; }
+    .active-size-btn.is-active { color: var(--warn); border-color: var(--warn); background: rgba(255,179,71,0.15); }
+
+    /* ── Scrollbar ── */
+    .mode-panel::-webkit-scrollbar { width: 4px; }
+    .mode-panel::-webkit-scrollbar-track { background: transparent; }
+    .mode-panel::-webkit-scrollbar-thumb { background: var(--input-border); border-radius: 2px; }
+
+    /* ── Canvas area ── */
+    #canvas-area {
+      flex: 1;
+      position: relative;
+      overflow: hidden;
+      background: #000;
+    }
+
+    #main-canvas, #loupe-canvas {
+      position: absolute;
+      top: 0; left: 0;
+    }
+    #main-canvas { width: 100%; height: 100%; cursor: crosshair; }
+    #loupe-canvas {
+      width: 180px; height: 180px;
+      bottom: 14px; right: 14px;
+      top: auto; left: auto;
+      border: 2px solid rgba(255,255,255,0.3);
+      border-radius: 4px;
+      display: none;
+      pointer-events: none;
+    }
+
+    /* ── Float toolbar ── */
+    #float-toolbar {
+      position: absolute;
+      top: 10px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: rgba(0,0,0,0.85);
+      border: 1px solid var(--accent);
+      border-radius: 6px;
+      padding: 5px 10px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      z-index: 10;
+      backdrop-filter: blur(8px);
+    }
+    #float-toolbar.hidden { display: none; }
+    .ft-label { color: var(--accent); font-size: 10px; font-weight: 700; letter-spacing: 0.5px; text-transform: uppercase; }
+    .ft-corner { color: var(--warn); font-size: 11px; font-weight: 700; min-width: 22px; }
+    .ft-sep { color: var(--text-muted); }
+
+    /* ── Modal ── */
+    .modal-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.7);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 100;
+      backdrop-filter: blur(4px);
+    }
+    .modal-overlay.hidden { display: none; }
+    .modal {
+      background: #1e1e1e;
+      border: 1px solid var(--section-border);
+      border-radius: 8px;
+      padding: 20px;
+      min-width: 280px;
+      max-width: 360px;
+    }
+    .modal-title { font-size: 14px; font-weight: 700; margin-bottom: 8px; }
+    .modal-body { color: var(--text-dim); font-size: 12px; margin-bottom: 14px; line-height: 1.5; }
+    .modal-actions { display: flex; justify-content: flex-end; gap: 8px; }
+
+    /* ── Project mode ── */
+    body.project-mode #sidebar { display: none; }
+    body.project-mode #float-toolbar { display: none !important; }
+    body.project-mode #loupe-canvas { display: none !important; }
+    body.project-mode #main-canvas { cursor: none; }
+
+    /* ── Global controls pinned at bottom ── */
+    .global-controls {
+      border-top: 1px solid var(--sidebar-border);
+      margin-top: auto;
+      flex-shrink: 0;
+    }
+  </style>
+</head>
+<body>
+<div id="app">
+
+  <!-- ══════════════ SIDEBAR ══════════════ -->
+  <aside id="sidebar">
+    <div class="mode-tabs">
+      <button class="mode-tab active" data-mode="calibrate">Calibrate</button>
+      <button class="mode-tab" data-mode="pattern">Pattern</button>
+    </div>
+
+    <!-- ── CALIBRATE PANEL ── -->
+    <div id="panel-calibrate" class="mode-panel">
+
+      <div class="section">
+        <div class="section-title">Grid</div>
+        <div class="row">
+          <label>Unit</label>
+          <div class="btn-group">
+            <button id="unit-inches" class="small active">inches</button>
+            <button id="unit-cm" class="small">cm</button>
+          </div>
+        </div>
+        <div class="row">
+          <label>Cell Size</label>
+          <select id="cell-size">
+            <option value="0.5">0.5</option>
+            <option value="1" selected>1</option>
+            <option value="2">2</option>
+          </select>
+        </div>
+        <div class="row">
+          <label>Color</label>
+          <input type="color" id="grid-color" value="#00cc88">
+        </div>
+        <div class="row">
+          <label>Opacity</label>
+          <input type="range" id="grid-opacity" min="0" max="1" step="0.05" value="0.7">
+          <span class="val-label" id="grid-opacity-val">70%</span>
+        </div>
+        <div class="row">
+          <label>Weight</label>
+          <input type="range" id="grid-weight" min="0.5" max="4" step="0.5" value="1">
+          <span class="val-label" id="grid-weight-val">1px</span>
+        </div>
+      </div>
+
+      <div class="section">
+        <div class="section-title">Corner Warping</div>
+        <div class="row">
+          <label>Mode</label>
+          <div class="btn-group">
+            <button id="corner-drag-mode" class="small active">Drag</button>
+            <button id="corner-float-mode" class="small">Float</button>
+          </div>
+        </div>
+        <div id="float-mode-info" class="hidden">
+          <div class="hint">Double-click a corner to float it. Single-click canvas to lock.</div>
+          <div class="section-subtitle">Cursor Assist</div>
+          <div class="tool-row">
+            <button class="tool-btn" id="sb-loupe">Loupe</button>
+            <button class="tool-btn" id="sb-snap">Snap</button>
+            <button class="tool-btn" id="sb-crosshair">⊕ Crosshair</button>
+          </div>
+          <div class="hint">Arrow keys nudge 1px · Shift+Arrow = 10px</div>
+        </div>
+      </div>
+
+      <div class="section">
+        <div class="section-title">Scale Reference</div>
+        <div class="hint" id="scale-hint">Click two points on the canvas to set real-world scale.</div>
+        <div id="scale-distance-row" class="row hidden">
+          <label>Distance</label>
+          <input type="number" id="scale-distance" min="0.01" step="0.1" value="1">
+          <span id="scale-unit-lbl">in</span>
+        </div>
+        <div id="scale-action-row" class="row hidden">
+          <button id="btn-lock-scale">Lock Scale</button>
+          <button id="btn-clear-scale">Clear</button>
+        </div>
+        <div id="scale-locked-info" class="hint success hidden"></div>
+        <div id="btn-pick-scale-row" class="row">
+          <button id="btn-pick-scale" class="small">Pick Points</button>
+        </div>
+      </div>
+
+      <div class="section">
+        <button class="btn-full danger" id="btn-reset-cal">Reset Calibration</button>
+      </div>
+
+    </div><!-- /panel-calibrate -->
+
+    <!-- ── PATTERN PANEL ── -->
+    <div id="panel-pattern" class="mode-panel hidden">
+
+      <div class="section">
+        <div class="section-title">Pattern File</div>
+        <label class="file-drop" id="pdf-drop-label">
+          <input type="file" id="pdf-input" accept=".pdf" hidden>
+          <span id="pdf-label-text">Drop PDF or click to upload</span>
+        </label>
+        <div id="page-nav" class="row hidden">
+          <button id="btn-prev-page" class="small">‹ Prev</button>
+          <span id="page-info" style="flex:1;text-align:center;color:var(--text-dim)">Page 1 / 1</span>
+          <button id="btn-next-page" class="small">Next ›</button>
+        </div>
+      </div>
+
+      <div class="section">
+        <div class="section-title">Pattern Scale</div>
+        <div class="hint" id="ref-sq-hint">Click two corners of the pattern's printed reference square.</div>
+        <div id="ref-sq-active-row" class="row hidden">
+          <button id="btn-pick-ref-sq" class="small active">Picking…</button>
+          <button id="btn-cancel-ref-sq" class="small">Cancel</button>
+        </div>
+        <div id="ref-sq-idle-row" class="row">
+          <button id="btn-start-ref-sq" class="small">Pick Reference Square</button>
+        </div>
+        <div id="ref-sq-controls" class="hidden">
+          <div class="row">
+            <label>Size</label>
+            <input type="number" id="ref-sq-size" min="0.01" step="0.1" value="1">
+            <span id="ref-sq-unit-lbl">in</span>
+          </div>
+          <div class="row">
+            <button id="btn-apply-ref-sq">Apply Scale</button>
+            <button id="btn-clear-ref-sq">Clear</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="section">
+        <div class="section-title">Transform</div>
+        <div class="row">
+          <label>X</label>
+          <input type="number" id="pat-x" value="0" style="width:56px">
+          <label>Y</label>
+          <input type="number" id="pat-y" value="0" style="width:56px">
+          <button id="btn-center-pat" class="small">Center</button>
+        </div>
+        <div class="row">
+          <label>Rotation</label>
+          <input type="range" id="pat-rot-slider" min="-180" max="180" step="1" value="0">
+          <input type="number" id="pat-rot-num" min="-180" max="180" step="1" value="0" style="width:48px">°
+        </div>
+        <div class="row">
+          <label>Scale</label>
+          <input type="range" id="pat-scale-slider" min="0.1" max="4" step="0.01" value="1">
+          <span class="val-label" id="pat-scale-val">100%</span>
+        </div>
+        <div class="row">
+          <label>Opacity</label>
+          <input type="range" id="pat-opacity-slider" min="0" max="1" step="0.05" value="1">
+          <span class="val-label" id="pat-opacity-val">100%</span>
+        </div>
+        <div class="row">
+          <button id="btn-reset-transform" class="small">Reset Transform</button>
+        </div>
+      </div>
+
+      <div class="section">
+        <div class="section-title">Sizes</div>
+        <div id="sizes-panel">
+          <div class="hint">Load a PDF to detect size lines.</div>
+        </div>
+      </div>
+
+      <div class="section">
+        <div class="section-title">Line Style</div>
+        <div class="row">
+          <label>Line Color</label>
+          <input type="color" id="line-color" value="#000000">
+        </div>
+        <div class="row">
+          <label>Highlight</label>
+          <input type="color" id="highlight-color" value="#ff2222">
+        </div>
+        <div class="row">
+          <label>Weight</label>
+          <input type="range" id="line-weight-slider" min="0.5" max="5" step="0.5" value="1">
+          <span class="val-label" id="line-weight-val">1px</span>
+        </div>
+      </div>
+
+    </div><!-- /panel-pattern -->
+
+    <!-- ── GLOBAL CONTROLS ── -->
+    <div class="section global-controls">
+      <button class="btn-full" id="btn-global-invert">⟳ Global Invert</button>
+      <button class="btn-full accent" id="btn-project-mode">▶ Project Mode</button>
+    </div>
+  </aside>
+
+  <!-- ══════════════ CANVAS AREA ══════════════ -->
+  <main id="canvas-area">
+    <canvas id="main-canvas"></canvas>
+    <canvas id="loupe-canvas" width="180" height="180"></canvas>
+
+    <div id="float-toolbar" class="hidden">
+      <span class="ft-label">Float</span>
+      <span class="ft-corner" id="ft-corner-name">TL</span>
+      <span class="ft-sep">|</span>
+      <button class="tool-btn" id="ft-loupe">Loupe</button>
+      <button class="tool-btn" id="ft-snap">Snap</button>
+      <button class="tool-btn" id="ft-crosshair">⊕</button>
+      <span class="ft-sep">|</span>
+      <button id="ft-cancel" class="small danger">Cancel</button>
+    </div>
+  </main>
+</div>
+
+<!-- Reset confirmation modal -->
+<div id="modal-reset" class="modal-overlay hidden">
+  <div class="modal">
+    <div class="modal-title">Reset Calibration?</div>
+    <div class="modal-body">All corner positions and scale reference will be cleared. This cannot be undone.</div>
+    <div class="modal-actions">
+      <button id="modal-cancel">Cancel</button>
+      <button id="modal-confirm" class="danger">Reset</button>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<script>
+'use strict';
+
+// ═══════════════════════════════════════════════════════════════
+// PDF.js INIT
+// ═══════════════════════════════════════════════════════════════
+const pdfjsLib = window['pdfjs-dist/build/pdf'];
+pdfjsLib.GlobalWorkerOptions.workerSrc =
+  'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+
+// ═══════════════════════════════════════════════════════════════
+// STATE
+// ═══════════════════════════════════════════════════════════════
+const S = {
+  appMode: 'calibrate',   // 'calibrate' | 'pattern'
+  projectMode: false,
+
+  canvasW: 0, canvasH: 0,
+  dpr: 1,
+
+  grid: {
+    unit: 'inches',       // 'inches' | 'cm'
+    cellSize: 1,
+    color: '#00cc88',
+    opacity: 0.7,
+    lineWeight: 1,
+  },
+
+  corners: [              // [TL, TR, BR, BL]
+    { x: 0, y: 0 },
+    { x: 0, y: 0 },
+    { x: 0, y: 0 },
+    { x: 0, y: 0 },
+  ],
+  cornersInit: false,
+
+  cornerMode: 'drag',     // 'drag' | 'float'
+  floatTools: { loupe: false, snap: false, crosshair: false },
+  floatingIdx: -1,        // -1 = none floating
+  draggingIdx: -1,
+
+  scale: {
+    points: [],           // [{x,y}] 0,1,2 points
+    realDist: 1,
+    ppu: 80,              // pixels per unit (default)
+    locked: false,
+    picking: false,
+  },
+
+  pattern: {
+    pdfDoc: null,
+    page: null,
+    pageNum: 1,
+    numPages: 0,
+    viewport: null,
+    groups: [],           // { id, dashKey, dash, label, vis:'show'|'ghost'|'hide', canvas, color, weight, active }
+    canvas: null,         // full render canvas (base)
+    loadingGroups: false,
+
+    transform: { x: 0, y: 0, rotation: 0, scale: 1, opacity: 1 },
+    dragging: false,
+    dragStartMouse: null,
+    dragStartPos: null,
+
+    lineColor: '#000000',
+    highlightColor: '#ff2222',
+    lineWeight: 1,
+    globalInvert: false,
+
+    refSquare: {
+      picking: false,
+      points: [],         // 0,1,2 points
+      realSize: 1,
+    },
+  },
+
+  cursor: { x: 0, y: 0 },
+  globalInvert: false,
+};
+
+// ═══════════════════════════════════════════════════════════════
+// DOM REFS
+// ═══════════════════════════════════════════════════════════════
+const E = {
+  app:          document.getElementById('app'),
+  sidebar:      document.getElementById('sidebar'),
+  canvasArea:   document.getElementById('canvas-area'),
+  mainCanvas:   document.getElementById('main-canvas'),
+  loupeCanvas:  document.getElementById('loupe-canvas'),
+  floatToolbar: document.getElementById('float-toolbar'),
+  ftCornerName: document.getElementById('ft-corner-name'),
+  ftLoupe:      document.getElementById('ft-loupe'),
+  ftSnap:       document.getElementById('ft-snap'),
+  ftCrosshair:  document.getElementById('ft-crosshair'),
+  ftCancel:     document.getElementById('ft-cancel'),
+  floatModeInfo:document.getElementById('float-mode-info'),
+  sbLoupe:      document.getElementById('sb-loupe'),
+  sbSnap:       document.getElementById('sb-snap'),
+  sbCrosshair:  document.getElementById('sb-crosshair'),
+  sizesPanel:   document.getElementById('sizes-panel'),
+  pageNav:      document.getElementById('page-nav'),
+  pageInfo:     document.getElementById('page-info'),
+  pdfLabel:     document.getElementById('pdf-label-text'),
+  scaleHint:    document.getElementById('scale-hint'),
+  scaleDistRow: document.getElementById('scale-distance-row'),
+  scaleActRow:  document.getElementById('scale-action-row'),
+  scaleLockedInfo: document.getElementById('scale-locked-info'),
+  scalePickRow: document.getElementById('btn-pick-scale-row'),
+  refSqHint:    document.getElementById('ref-sq-hint'),
+  refSqActiveRow: document.getElementById('ref-sq-active-row'),
+  refSqIdleRow: document.getElementById('ref-sq-idle-row'),
+  refSqControls: document.getElementById('ref-sq-controls'),
+};
+
+const ctx = E.mainCanvas.getContext('2d');
+const loupeCtx = E.loupeCanvas.getContext('2d');
+
+// ═══════════════════════════════════════════════════════════════
+// UTILITIES
+// ═══════════════════════════════════════════════════════════════
+function dist(a, b) {
+  return Math.hypot(b.x - a.x, b.y - a.y);
+}
+
+function clamp(v, lo, hi) { return Math.max(lo, Math.min(hi, v)); }
+
+function lerp(a, b, t) { return a + (b - a) * t; }
+
+function bilinear(u, v) {
+  const [TL, TR, BR, BL] = S.corners;
+  return {
+    x: (1-u)*(1-v)*TL.x + u*(1-v)*TR.x + u*v*BR.x + (1-u)*v*BL.x,
+    y: (1-u)*(1-v)*TL.y + u*(1-v)*TR.y + u*v*BR.y + (1-u)*v*BL.y,
+  };
+}
+
+const CORNER_NAMES = ['TL', 'TR', 'BR', 'BL'];
+const CORNER_COLORS = ['#4fa3ff', '#ff9944', '#ff4fa3', '#44d988'];
+const CORNER_HANDLE_R = 10;
+
+// ═══════════════════════════════════════════════════════════════
+// CANVAS SETUP & RESIZE
+// ═══════════════════════════════════════════════════════════════
+function setupCanvas() {
+  S.dpr = window.devicePixelRatio || 1;
+  const rect = E.canvasArea.getBoundingClientRect();
+  S.canvasW = rect.width;
+  S.canvasH = rect.height;
+
+  E.mainCanvas.width  = Math.floor(rect.width  * S.dpr);
+  E.mainCanvas.height = Math.floor(rect.height * S.dpr);
+  E.mainCanvas.style.width  = rect.width  + 'px';
+  E.mainCanvas.style.height = rect.height + 'px';
+
+  ctx.setTransform(S.dpr, 0, 0, S.dpr, 0, 0);
+
+  if (!S.cornersInit) {
+    initCorners();
+    S.cornersInit = true;
+  }
+}
+
+function initCorners() {
+  const pad = Math.min(S.canvasW, S.canvasH) * 0.1;
+  S.corners = [
+    { x: pad,              y: pad },
+    { x: S.canvasW - pad,  y: pad },
+    { x: S.canvasW - pad,  y: S.canvasH - pad },
+    { x: pad,              y: S.canvasH - pad },
+  ];
+}
+
+window.addEventListener('resize', () => {
+  const hadCorners = S.cornersInit;
+  const oldW = S.canvasW, oldH = S.canvasH;
+  S.cornersInit = false;
+  setupCanvas();
+  if (hadCorners && (oldW > 0)) {
+    const sx = S.canvasW / oldW, sy = S.canvasH / oldH;
+    for (const c of S.corners) { c.x *= sx; c.y *= sy; }
+  }
+});
+
+// ═══════════════════════════════════════════════════════════════
+// GRID DRAWING
+// ═══════════════════════════════════════════════════════════════
+function getGridDims() {
+  const [TL, TR, BR, BL] = S.corners;
+  const topW  = dist(TL, TR);
+  const botW  = dist(BL, BR);
+  const leftH = dist(TL, BL);
+  const rightH= dist(TR, BR);
+  const avgW  = (topW + botW) / 2;
+  const avgH  = (leftH + rightH) / 2;
+  const physW = avgW / S.scale.ppu;
+  const physH = avgH / S.scale.ppu;
+  const nCols = Math.max(2, Math.ceil(physW / S.grid.cellSize));
+  const nRows = Math.max(2, Math.ceil(physH / S.grid.cellSize));
+  return { nCols, nRows };
+}
+
+function drawGrid() {
+  const { color, opacity, lineWeight } = S.grid;
+  const [TL, TR, BR, BL] = S.corners;
+  const { nCols, nRows } = getGridDims();
+
+  ctx.save();
+  ctx.globalAlpha = opacity;
+  ctx.strokeStyle = S.globalInvert ? invertColor(color) : color;
+  ctx.lineWidth = lineWeight;
+  ctx.lineCap = 'round';
+
+  // Horizontal lines: for each row r, the line goes from left edge (u=0) to right edge (u=1) at v=r/nRows
+  for (let r = 0; r <= nRows; r++) {
+    const v = r / nRows;
+    const sx = lerp(TL.x, BL.x, v), sy = lerp(TL.y, BL.y, v);
+    const ex = lerp(TR.x, BR.x, v), ey = lerp(TR.y, BR.y, v);
+    ctx.beginPath();
+    ctx.moveTo(sx, sy);
+    ctx.lineTo(ex, ey);
+    ctx.stroke();
+  }
+
+  // Vertical lines: for each col c, from top edge (v=0) to bottom edge (v=1) at u=c/nCols
+  for (let c = 0; c <= nCols; c++) {
+    const u = c / nCols;
+    const sx = lerp(TL.x, TR.x, u), sy = lerp(TL.y, TR.y, u);
+    const ex = lerp(BL.x, BR.x, u), ey = lerp(BL.y, BR.y, u);
+    ctx.beginPath();
+    ctx.moveTo(sx, sy);
+    ctx.lineTo(ex, ey);
+    ctx.stroke();
+  }
+
+  ctx.restore();
+}
+
+function invertColor(hex) {
+  const c = parseInt(hex.slice(1), 16);
+  return '#' + (0xFFFFFF ^ c).toString(16).padStart(6, '0');
+}
+
+// ═══════════════════════════════════════════════════════════════
+// CORNER HANDLES
+// ═══════════════════════════════════════════════════════════════
+function drawCorners() {
+  for (let i = 0; i < 4; i++) {
+    const c = S.corners[i];
+    const isFloating = S.floatingIdx === i;
+    const isDragging = S.draggingIdx === i;
+    const col = CORNER_COLORS[i];
+
+    ctx.save();
+    ctx.strokeStyle = col;
+    ctx.fillStyle = col;
+    ctx.lineWidth = 2;
+    ctx.globalAlpha = isFloating ? 0.5 : 1;
+
+    if (isFloating) {
+      // Pulsing ring at cursor
+      ctx.strokeStyle = col;
+      ctx.lineWidth = 2;
+      ctx.setLineDash([4, 3]);
+      ctx.beginPath();
+      ctx.arc(c.x, c.y, CORNER_HANDLE_R + 4, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.setLineDash([]);
+    }
+
+    // Fill circle
+    ctx.beginPath();
+    ctx.arc(c.x, c.y, CORNER_HANDLE_R, 0, Math.PI * 2);
+    ctx.globalAlpha = isDragging || isFloating ? 0.9 : 0.75;
+    ctx.fill();
+
+    // Label
+    ctx.globalAlpha = 1;
+    ctx.fillStyle = '#000';
+    ctx.font = `bold 9px sans-serif`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(CORNER_NAMES[i], c.x, c.y);
+
+    ctx.restore();
+  }
+}
+
+function hitTestCorner(x, y) {
+  for (let i = 0; i < 4; i++) {
+    if (dist({ x, y }, S.corners[i]) <= CORNER_HANDLE_R + 4) return i;
+  }
+  return -1;
+}
+
+// ═══════════════════════════════════════════════════════════════
+// SCALE REFERENCE DRAWING
+// ═══════════════════════════════════════════════════════════════
+function drawScaleRef() {
+  const pts = S.scale.points;
+  if (pts.length === 0) return;
+
+  ctx.save();
+  ctx.strokeStyle = '#ffb347';
+  ctx.fillStyle = '#ffb347';
+  ctx.lineWidth = 1.5;
+  ctx.setLineDash([4, 3]);
+
+  for (const p of pts) {
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, 5, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  if (pts.length === 2) {
+    ctx.beginPath();
+    ctx.moveTo(pts[0].x, pts[0].y);
+    ctx.lineTo(pts[1].x, pts[1].y);
+    ctx.stroke();
+    // Midpoint label
+    const mx = (pts[0].x + pts[1].x) / 2;
+    const my = (pts[0].y + pts[1].y) / 2;
+    ctx.setLineDash([]);
+    ctx.fillStyle = '#ffb347';
+    ctx.font = '11px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'bottom';
+    ctx.fillText(`${S.scale.realDist} ${S.grid.unit}`, mx, my - 6);
+  }
+
+  ctx.setLineDash([]);
+  ctx.restore();
+}
+
+// ═══════════════════════════════════════════════════════════════
+// REFERENCE SQUARE DRAWING (pattern mode)
+// ═══════════════════════════════════════════════════════════════
+function drawRefSquare() {
+  const pts = S.pattern.refSquare.points;
+  if (pts.length === 0) return;
+
+  ctx.save();
+  ctx.strokeStyle = '#cc44ff';
+  ctx.fillStyle = '#cc44ff';
+  ctx.lineWidth = 1.5;
+  ctx.setLineDash([4, 3]);
+
+  for (const p of pts) {
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, 5, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  if (pts.length === 2) {
+    // Draw a square from the two points
+    const [a, b] = pts;
+    ctx.beginPath();
+    ctx.rect(Math.min(a.x, b.x), Math.min(a.y, b.y),
+             Math.abs(b.x - a.x), Math.abs(b.y - a.y));
+    ctx.stroke();
+  }
+
+  ctx.setLineDash([]);
+  ctx.restore();
+}
+
+// ═══════════════════════════════════════════════════════════════
+// CROSSHAIR
+// ═══════════════════════════════════════════════════════════════
+function drawCrosshair() {
+  if (!S.floatTools.crosshair || S.floatingIdx === -1) return;
+  const { x, y } = S.cursor;
+
+  ctx.save();
+  ctx.strokeStyle = 'rgba(255,255,255,0.4)';
+  ctx.lineWidth = 1;
+  ctx.setLineDash([6, 4]);
+
+  ctx.beginPath();
+  ctx.moveTo(0, y);
+  ctx.lineTo(S.canvasW, y);
+  ctx.stroke();
+
+  ctx.beginPath();
+  ctx.moveTo(x, 0);
+  ctx.lineTo(x, S.canvasH);
+  ctx.stroke();
+
+  ctx.setLineDash([]);
+  ctx.restore();
+}
+
+// ═══════════════════════════════════════════════════════════════
+// LOUPE
+// ═══════════════════════════════════════════════════════════════
+let renderBuffer = null;
+
+function drawLoupe() {
+  if (!S.floatTools.loupe || S.floatingIdx === -1) {
+    E.loupeCanvas.style.display = 'none';
+    return;
+  }
+  E.loupeCanvas.style.display = 'block';
+
+  if (!renderBuffer) return;
+
+  const ZOOM = 4;
+  const LW = E.loupeCanvas.width;
+  const LH = E.loupeCanvas.height;
+  const srcW = LW / ZOOM;
+  const srcH = LH / ZOOM;
+  const { x, y } = S.cursor;
+
+  loupeCtx.clearRect(0, 0, LW, LH);
+  loupeCtx.fillStyle = '#000';
+  loupeCtx.fillRect(0, 0, LW, LH);
+
+  const sx = clamp(x - srcW / 2, 0, Math.max(0, S.canvasW - srcW));
+  const sy = clamp(y - srcH / 2, 0, Math.max(0, S.canvasH - srcH));
+
+  // Draw from render buffer (in logical coords) scaled to loupe
+  loupeCtx.drawImage(
+    renderBuffer,
+    sx * S.dpr, sy * S.dpr,
+    srcW * S.dpr, srcH * S.dpr,
+    0, 0, LW, LH
+  );
+
+  // Crosshair in loupe
+  loupeCtx.strokeStyle = 'rgba(255,80,80,0.8)';
+  loupeCtx.lineWidth = 1;
+  loupeCtx.beginPath();
+  loupeCtx.moveTo(LW / 2, 0); loupeCtx.lineTo(LW / 2, LH);
+  loupeCtx.moveTo(0, LH / 2); loupeCtx.lineTo(LW, LH / 2);
+  loupeCtx.stroke();
+
+  // Border
+  loupeCtx.strokeStyle = 'rgba(255,255,255,0.3)';
+  loupeCtx.lineWidth = 1;
+  loupeCtx.strokeRect(0, 0, LW, LH);
+}
+
+// ═══════════════════════════════════════════════════════════════
+// PDF LOADING
+// ═══════════════════════════════════════════════════════════════
+async function loadPDF(file) {
+  try {
+    E.pdfLabel.textContent = 'Loading…';
+    const arrayBuffer = await file.arrayBuffer();
+    S.pattern.pdfDoc = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+    S.pattern.numPages = S.pattern.pdfDoc.numPages;
+    S.pattern.pageNum = 1;
+    E.pdfLabel.textContent = file.name;
+    E.pageNav.classList.toggle('hidden', S.pattern.numPages <= 1);
+    await renderPDFPage();
+  } catch (err) {
+    console.error('PDF load error:', err);
+    E.pdfLabel.textContent = 'Error loading PDF';
+  }
+}
+
+async function renderPDFPage() {
+  if (!S.pattern.pdfDoc) return;
+  E.pageInfo.textContent = `Page ${S.pattern.pageNum} / ${S.pattern.numPages}`;
+
+  S.pattern.page = await S.pattern.pdfDoc.getPage(S.pattern.pageNum);
+  const scale = S.scale.ppu / 72; // PDF uses 72dpi internally
+  S.pattern.viewport = S.pattern.page.getViewport({ scale });
+
+  // Analyze dash styles
+  await analyzeDashes(S.pattern.page);
+
+  // Render all groups
+  await renderAllGroups();
+
+  // Center the pattern on first load
+  S.pattern.transform.x = (S.canvasW - S.pattern.viewport.width) / 2;
+  S.pattern.transform.y = (S.canvasH - S.pattern.viewport.height) / 2;
+  updatePatternXY();
+}
+
+// ═══════════════════════════════════════════════════════════════
+// DASH ANALYSIS
+// ═══════════════════════════════════════════════════════════════
+async function analyzeDashes(page) {
+  const opList = await page.getOperatorList();
+  const { fnArray, argsArray } = opList;
+  const OPS = pdfjsLib.OPS;
+
+  const groupMap = new Map(); // dashKey -> {dash, strokeCount}
+  let curDash = [];
+
+  for (let i = 0; i < fnArray.length; i++) {
+    const fn = fnArray[i];
+    if (fn === OPS.setDash) {
+      curDash = argsArray[i][0] ? Array.from(argsArray[i][0]) : [];
+    } else if (fn === OPS.stroke || fn === OPS.fillStroke || fn === OPS.eoFillStroke) {
+      const key = normalizeDashKey(curDash);
+      if (!groupMap.has(key)) {
+        groupMap.set(key, { dash: [...curDash], strokeCount: 0 });
+      }
+      groupMap.get(key).strokeCount++;
+    }
+  }
+
+  S.pattern.groups = [];
+  let idx = 0;
+  const GROUP_COLORS = ['#ff2222','#2288ff','#22cc44','#ff8822','#cc22ff','#22cccc','#ffcc22','#ff2288'];
+  for (const [key, val] of groupMap) {
+    if (val.strokeCount === 0) continue;
+    S.pattern.groups.push({
+      id: idx,
+      dashKey: key,
+      dash: val.dash,
+      label: dashLabel(val.dash),
+      vis: 'show',
+      canvas: null,
+      color: GROUP_COLORS[idx % GROUP_COLORS.length],
+      weight: null,
+      active: idx === 0,
+      invert: false,
+    });
+    idx++;
+  }
+
+  buildSizesPanel();
+}
+
+function normalizeDashKey(dash) {
+  if (!Array.isArray(dash) || dash.length === 0) return '[]';
+  return JSON.stringify(dash.map(Number));
+}
+
+function dashLabel(dash) {
+  if (!dash || dash.length === 0) return 'Solid';
+  if (dash.length === 2) {
+    const [on, off] = dash;
+    if (on <= 1) return 'Dotted';
+    if (on === off) return `Dash (${on})`;
+    if (on > off * 1.5) return `Long Dash`;
+    if (on < off * 0.7) return `Short Dash`;
+    return `Dash ${on}/${off}`;
+  }
+  if (dash.length === 4) return 'Dash-Dot';
+  return `Custom (${dash.join(',')})`;
+}
+
+// ═══════════════════════════════════════════════════════════════
+// GROUP RENDERING (per dash style)
+// ═══════════════════════════════════════════════════════════════
+async function renderAllGroups() {
+  if (!S.pattern.page || !S.pattern.viewport) return;
+  S.pattern.loadingGroups = true;
+
+  for (const group of S.pattern.groups) {
+    group.canvas = await renderSingleGroup(group);
+  }
+
+  S.pattern.loadingGroups = false;
+  updateSizesPanel();
+}
+
+async function renderSingleGroup(group) {
+  const vp = S.pattern.viewport;
+  const canvas = document.createElement('canvas');
+  canvas.width  = Math.ceil(vp.width);
+  canvas.height = Math.ceil(vp.height);
+  const realCtx = canvas.getContext('2d');
+
+  // Transparent background
+  realCtx.clearRect(0, 0, canvas.width, canvas.height);
+
+  const targetKey = group.dashKey;
+  let curDashKey = '[]';
+  const dashStack = ['[]'];
+  // Active groups render in highlight color for easy identification
+  const overrideColor = group.active ? S.pattern.highlightColor : group.color;
+
+  const proxy = new Proxy(realCtx, {
+    get(target, prop) {
+      if (typeof prop !== 'string') return Reflect.get(target, prop);
+
+      if (prop === 'save') return () => { dashStack.push(curDashKey); target.save(); };
+      if (prop === 'restore') return () => {
+        curDashKey = dashStack.pop() ?? '[]';
+        target.restore();
+      };
+      if (prop === 'setLineDash') return (dash) => {
+        curDashKey = normalizeDashKey(dash);
+        target.setLineDash(dash);
+      };
+      if (prop === 'stroke') return () => {
+        if (curDashKey === targetKey) {
+          const prevStyle = target.strokeStyle;
+          target.strokeStyle = overrideColor;
+          target.stroke();
+          target.strokeStyle = prevStyle;
+        }
+      };
+      // Skip strokes that are part of fill+stroke for non-matching
+      if (prop === 'fill') return (...a) => target.fill(...a);
+
+      const val = target[prop];
+      if (typeof val === 'function') return val.bind(target);
+      return val;
+    },
+    set(target, prop, value) {
+      target[prop] = value;
+      return true;
+    },
+  });
+
+  try {
+    await S.pattern.page.render({ canvasContext: proxy, viewport: vp }).promise;
+  } catch (e) {
+    // Render errors are non-fatal
+  }
+
+  return canvas;
+}
+
+// ═══════════════════════════════════════════════════════════════
+// PATTERN DRAWING
+// ═══════════════════════════════════════════════════════════════
+function drawPattern() {
+  if (!S.pattern.page) return;
+  const { x, y, rotation, scale, opacity } = S.pattern.transform;
+  if (S.pattern.groups.length === 0) return;
+
+  ctx.save();
+  ctx.translate(x, y);
+  ctx.rotate(rotation * Math.PI / 180);
+  ctx.scale(scale, scale);
+
+  // Draw non-active groups first
+  for (const group of S.pattern.groups) {
+    if (group.active || group.vis === 'hide' || !group.canvas) continue;
+    const groupOpacity = group.vis === 'ghost' ? 0.2 : 1.0;
+    ctx.globalAlpha = opacity * groupOpacity;
+    const shouldInvert = S.globalInvert !== group.invert; // XOR
+    if (shouldInvert) ctx.filter = 'invert(100%)';
+    ctx.drawImage(group.canvas, 0, 0);
+    ctx.filter = 'none';
+  }
+
+  // Draw active group last (on top)
+  for (const group of S.pattern.groups) {
+    if (!group.active || group.vis === 'hide' || !group.canvas) continue;
+    const groupOpacity = group.vis === 'ghost' ? 0.2 : 1.0;
+    ctx.globalAlpha = opacity * groupOpacity;
+    const shouldInvert = S.globalInvert !== group.invert;
+    if (shouldInvert) ctx.filter = 'invert(100%)';
+    ctx.drawImage(group.canvas, 0, 0);
+    ctx.filter = 'none';
+  }
+
+  ctx.restore();
+}
+
+// ═══════════════════════════════════════════════════════════════
+// SIZES PANEL UI
+// ═══════════════════════════════════════════════════════════════
+function buildSizesPanel() {
+  E.sizesPanel.innerHTML = '';
+  if (S.pattern.groups.length === 0) {
+    E.sizesPanel.innerHTML = '<div class="hint">No distinct line styles detected.</div>';
+    return;
+  }
+  updateSizesPanel();
+}
+
+function updateSizesPanel() {
+  if (S.pattern.groups.length === 0) return;
+  E.sizesPanel.innerHTML = '';
+
+  for (const group of S.pattern.groups) {
+    const entry = document.createElement('div');
+    entry.className = 'size-entry';
+    entry.dataset.id = group.id;
+
+    // Swatch
+    const swatch = document.createElement('canvas');
+    swatch.className = 'dash-swatch';
+    swatch.width = 72;
+    swatch.height = 14;
+    drawDashSwatch(swatch, group.dash, group.color);
+
+    // Header row
+    const header = document.createElement('div');
+    header.className = 'size-entry-header';
+
+    const labelInput = document.createElement('input');
+    labelInput.className = 'size-label-input';
+    labelInput.value = group.label;
+    labelInput.addEventListener('change', () => {
+      group.label = labelInput.value;
+      saveState();
+    });
+
+    const activeBtn = document.createElement('button');
+    activeBtn.className = 'active-size-btn' + (group.active ? ' is-active' : '');
+    activeBtn.title = 'Mark as active size (rendered in highlight color)';
+    activeBtn.textContent = '★';
+    activeBtn.addEventListener('click', async () => {
+      const prevActive = S.pattern.groups.find(g => g.active && g !== group);
+      S.pattern.groups.forEach(g => g.active = false);
+      group.active = true;
+      updateSizesPanel();
+      // Re-render affected groups so their colors update (highlight vs. base)
+      if (prevActive) prevActive.canvas = await renderSingleGroup(prevActive);
+      group.canvas = await renderSingleGroup(group);
+      saveState();
+    });
+
+    header.append(swatch, labelInput, activeBtn);
+
+    // Visibility row
+    const visRow = document.createElement('div');
+    visRow.className = 'size-entry-vis';
+    ['show', 'ghost', 'hide'].forEach(v => {
+      const btn = document.createElement('button');
+      btn.className = 'vis-btn' + (group.vis === v ? ` active-${v}` : '');
+      btn.textContent = v.charAt(0).toUpperCase() + v.slice(1);
+      btn.addEventListener('click', () => {
+        group.vis = v;
+        updateSizesPanel();
+        saveState();
+      });
+      visRow.appendChild(btn);
+    });
+
+    // Controls row: color + weight + invert
+    const ctrlRow = document.createElement('div');
+    ctrlRow.className = 'size-entry-controls';
+
+    const colorPick = document.createElement('input');
+    colorPick.type = 'color';
+    colorPick.value = group.color;
+    colorPick.addEventListener('input', async () => {
+      group.color = colorPick.value;
+      drawDashSwatch(swatch, group.dash, group.active ? S.pattern.highlightColor : group.color);
+      group.canvas = await renderSingleGroup(group);
+      saveState();
+    });
+
+    const wtSlider = document.createElement('input');
+    wtSlider.type = 'range';
+    wtSlider.min = 0.5; wtSlider.max = 5; wtSlider.step = 0.5;
+    wtSlider.value = group.weight ?? 1;
+    wtSlider.style.flex = '1';
+    wtSlider.title = 'Stroke weight';
+    wtSlider.addEventListener('input', () => {
+      group.weight = parseFloat(wtSlider.value);
+    });
+
+    const invertBtn = document.createElement('button');
+    invertBtn.className = 'vis-btn' + (group.invert ? ' active-show' : '');
+    invertBtn.title = 'Invert this group';
+    invertBtn.textContent = '⟳';
+    invertBtn.style.padding = '2px 5px';
+    invertBtn.addEventListener('click', () => {
+      group.invert = !group.invert;
+      invertBtn.className = 'vis-btn' + (group.invert ? ' active-show' : '');
+      saveState();
+    });
+
+    ctrlRow.append(colorPick, wtSlider, invertBtn);
+    entry.append(header, visRow, ctrlRow);
+    E.sizesPanel.appendChild(entry);
+  }
+}
+
+function drawDashSwatch(canvas, dash, color) {
+  const sCtx = canvas.getContext('2d');
+  sCtx.clearRect(0, 0, canvas.width, canvas.height);
+  sCtx.fillStyle = '#1c1c1c';
+  sCtx.fillRect(0, 0, canvas.width, canvas.height);
+  sCtx.strokeStyle = color;
+  sCtx.lineWidth = 2;
+  sCtx.setLineDash(dash.length > 0 ? dash : []);
+  sCtx.beginPath();
+  sCtx.moveTo(4, canvas.height / 2);
+  sCtx.lineTo(canvas.width - 4, canvas.height / 2);
+  sCtx.stroke();
+  sCtx.setLineDash([]);
+}
+
+// ═══════════════════════════════════════════════════════════════
+// SNAP LOGIC
+// ═══════════════════════════════════════════════════════════════
+function snapCornerToGrid(idx) {
+  const { nCols, nRows } = getGridDims();
+  const c = S.corners[idx];
+  let best = null, bestD = Infinity;
+
+  for (let r = 0; r <= nRows; r++) {
+    for (let col = 0; col <= nCols; col++) {
+      const p = bilinear(col / nCols, r / nRows);
+      const d = dist(c, p);
+      if (d < bestD) { bestD = d; best = p; }
+    }
+  }
+  if (best && bestD < 40) {
+    S.corners[idx] = { ...best };
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════
+// MAIN RENDER
+// ═══════════════════════════════════════════════════════════════
+function render() {
+  ctx.clearRect(0, 0, S.canvasW, S.canvasH);
+
+  if (S.projectMode) {
+    // Project mode: black background, grid + pattern, no UI chrome
+    ctx.fillStyle = '#000';
+    ctx.fillRect(0, 0, S.canvasW, S.canvasH);
+    drawGrid();
+    drawPattern();
+    return;
+  }
+
+  ctx.fillStyle = '#0d0d0d';
+  ctx.fillRect(0, 0, S.canvasW, S.canvasH);
+
+  drawGrid();
+  drawPattern();
+
+  // UI overlays
+  if (S.appMode === 'calibrate') {
+    drawScaleRef();
+    drawCorners();
+    drawCrosshair();
+  }
+  if (S.appMode === 'pattern') {
+    drawRefSquare();
+    drawCorners();
+  }
+
+  // Capture buffer for loupe (before loupe is drawn)
+  captureRenderBuffer();
+  drawLoupe();
+}
+
+function captureRenderBuffer() {
+  if (!S.floatTools.loupe || S.floatingIdx === -1) { renderBuffer = null; return; }
+  renderBuffer = E.mainCanvas;
+}
+
+let rafId = null;
+function startRenderLoop() {
+  function frame() {
+    render();
+    rafId = requestAnimationFrame(frame);
+  }
+  frame();
+}
+
+// ═══════════════════════════════════════════════════════════════
+// CANVAS MOUSE EVENTS
+// ═══════════════════════════════════════════════════════════════
+function canvasXY(e) {
+  const rect = E.mainCanvas.getBoundingClientRect();
+  return {
+    x: (e.clientX - rect.left),
+    y: (e.clientY - rect.top),
+  };
+}
+
+E.mainCanvas.addEventListener('mousemove', onMouseMove);
+E.mainCanvas.addEventListener('mousedown', onMouseDown);
+E.mainCanvas.addEventListener('mouseup', onMouseUp);
+E.mainCanvas.addEventListener('dblclick', onDblClick);
+E.mainCanvas.addEventListener('click', onClick);
+E.mainCanvas.addEventListener('contextmenu', e => e.preventDefault());
+
+let _suppressDblClick = false;
+
+function onMouseMove(e) {
+  const { x, y } = canvasXY(e);
+  S.cursor = { x, y };
+
+  if (S.floatingIdx !== -1) {
+    S.corners[S.floatingIdx] = { x, y };
+    if (S.floatTools.snap) snapCornerToGrid(S.floatingIdx);
+    return;
+  }
+
+  if (S.draggingIdx !== -1) {
+    S.corners[S.draggingIdx] = { x, y };
+    return;
+  }
+
+  if (S.appMode === 'pattern' && S.pattern.dragging) {
+    const dx = x - S.pattern.dragStartMouse.x;
+    const dy = y - S.pattern.dragStartMouse.y;
+    S.pattern.transform.x = S.pattern.dragStartPos.x + dx;
+    S.pattern.transform.y = S.pattern.dragStartPos.y + dy;
+    updatePatternXY();
+    return;
+  }
+
+  // Cursor feedback
+  const hi = hitTestCorner(x, y);
+  E.mainCanvas.style.cursor = hi >= 0 ? 'grab' : (S.scale.picking || S.pattern.refSquare.picking ? 'crosshair' : 'default');
+}
+
+function onMouseDown(e) {
+  if (e.button !== 0) return;
+  const { x, y } = canvasXY(e);
+
+  if (S.floatingIdx !== -1) return; // floating: click locks (handled in onClick)
+
+  const hi = hitTestCorner(x, y);
+
+  if (hi >= 0 && S.cornerMode === 'drag') {
+    S.draggingIdx = hi;
+    E.mainCanvas.style.cursor = 'grabbing';
+    return;
+  }
+
+  if (S.appMode === 'calibrate' && S.scale.picking) return; // handled in click
+
+  if (S.appMode === 'pattern' && S.pattern.refSquare.picking) return; // handled in click
+
+  if (S.appMode === 'pattern' && hi < 0 && !S.pattern.refSquare.picking) {
+    S.pattern.dragging = true;
+    S.pattern.dragStartMouse = { x, y };
+    S.pattern.dragStartPos = { ...S.pattern.transform };
+    E.mainCanvas.style.cursor = 'grabbing';
+  }
+}
+
+function onMouseUp(e) {
+  if (S.draggingIdx >= 0) {
+    S.draggingIdx = -1;
+    saveState();
+    E.mainCanvas.style.cursor = 'default';
+  }
+  if (S.pattern.dragging) {
+    S.pattern.dragging = false;
+    saveState();
+    E.mainCanvas.style.cursor = 'default';
+  }
+}
+
+function onDblClick(e) {
+  if (S.cornerMode !== 'float' || _suppressDblClick) return;
+  const { x, y } = canvasXY(e);
+  const hi = hitTestCorner(x, y);
+  if (hi >= 0 && S.floatingIdx === -1) {
+    S.floatingIdx = hi;
+    E.floatToolbar.classList.remove('hidden');
+    E.ftCornerName.textContent = CORNER_NAMES[hi];
+    E.mainCanvas.style.cursor = 'none';
+  }
+}
+
+function onClick(e) {
+  if (e.detail > 1) return; // ignore click part of dblclick
+  const { x, y } = canvasXY(e);
+
+  // Lock floating corner
+  if (S.floatingIdx !== -1) {
+    S.floatingIdx = -1;
+    E.floatToolbar.classList.add('hidden');
+    E.mainCanvas.style.cursor = 'default';
+    // Suppress the dblclick that follows the second click of this locking action
+    _suppressDblClick = true;
+    setTimeout(() => { _suppressDblClick = false; }, 400);
+    saveState();
+    return;
+  }
+
+  // Scale reference picking
+  if (S.appMode === 'calibrate' && S.scale.picking) {
+    S.scale.points.push({ x, y });
+    if (S.scale.points.length === 1) {
+      E.scaleHint.textContent = 'Now click the second point on canvas…';
+    } else if (S.scale.points.length >= 2) {
+      S.scale.picking = false;
+      showScaleDistanceUI();
+    }
+    return;
+  }
+
+  // Pattern reference square picking
+  if (S.appMode === 'pattern' && S.pattern.refSquare.picking) {
+    S.pattern.refSquare.points.push({ x, y });
+    if (S.pattern.refSquare.points.length === 1) {
+      E.refSqHint.textContent = 'Click the opposite corner of the reference square…';
+    } else if (S.pattern.refSquare.points.length >= 2) {
+      S.pattern.refSquare.picking = false;
+      E.refSqActiveRow.classList.add('hidden');
+      E.refSqIdleRow.classList.remove('hidden');
+      E.refSqControls.classList.remove('hidden');
+      E.refSqHint.textContent = 'Enter the real size and click Apply Scale.';
+    }
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════
+// KEYBOARD
+// ═══════════════════════════════════════════════════════════════
+document.addEventListener('keydown', (e) => {
+  // Project mode exit
+  if (S.projectMode) {
+    if (e.key === 'p' || e.key === 'P' || e.key === 'Escape') {
+      exitProjectMode();
+    }
+    return;
+  }
+
+  // Float mode nudge
+  if (S.floatingIdx !== -1 && ['ArrowUp','ArrowDown','ArrowLeft','ArrowRight'].includes(e.key)) {
+    e.preventDefault();
+    const step = e.shiftKey ? 10 : 1;
+    const c = S.corners[S.floatingIdx];
+    if (e.key === 'ArrowUp')    c.y -= step;
+    if (e.key === 'ArrowDown')  c.y += step;
+    if (e.key === 'ArrowLeft')  c.x -= step;
+    if (e.key === 'ArrowRight') c.x += step;
+    if (S.floatTools.snap) snapCornerToGrid(S.floatingIdx);
+  }
+
+  if (e.key === 'Escape' && S.floatingIdx !== -1) {
+    S.floatingIdx = -1;
+    E.floatToolbar.classList.add('hidden');
+    E.mainCanvas.style.cursor = 'default';
+    saveState();
+  }
+
+  if (e.key === 'p' || e.key === 'P') {
+    enterProjectMode();
+  }
+});
+
+// ═══════════════════════════════════════════════════════════════
+// PROJECT MODE
+// ═══════════════════════════════════════════════════════════════
+function enterProjectMode() {
+  S.projectMode = true;
+  document.body.classList.add('project-mode');
+  E.canvasArea.requestFullscreen?.().catch(() => {});
+}
+
+function exitProjectMode() {
+  S.projectMode = false;
+  document.body.classList.remove('project-mode');
+  if (document.fullscreenElement) document.exitFullscreen?.();
+}
+
+document.addEventListener('fullscreenchange', () => {
+  if (!document.fullscreenElement && S.projectMode) exitProjectMode();
+  setTimeout(setupCanvas, 50);
+});
+
+// ═══════════════════════════════════════════════════════════════
+// SCALE REFERENCE UI HELPERS
+// ═══════════════════════════════════════════════════════════════
+function showScaleDistanceUI() {
+  E.scaleDistRow.classList.remove('hidden');
+  E.scaleActRow.classList.remove('hidden');
+  E.scalePickRow.classList.add('hidden');
+  E.scaleHint.textContent = 'Enter the real-world distance between the two points.';
+}
+
+function lockScale() {
+  if (S.scale.points.length < 2) return;
+  const d = dist(S.scale.points[0], S.scale.points[1]);
+  S.scale.realDist = parseFloat(document.getElementById('scale-distance').value) || 1;
+  S.scale.ppu = d / S.scale.realDist;
+  S.scale.locked = true;
+  const unit = S.grid.unit === 'inches' ? 'in' : 'cm';
+  E.scaleLockedInfo.textContent = `Locked: ${S.scale.ppu.toFixed(1)} px/${unit}`;
+  E.scaleLockedInfo.classList.remove('hidden');
+  E.scaleDistRow.classList.add('hidden');
+  E.scaleActRow.classList.add('hidden');
+  E.scaleHint.textContent = 'Scale locked.';
+  saveState();
+}
+
+function clearScale() {
+  S.scale.points = [];
+  S.scale.locked = false;
+  S.scale.picking = false;
+  E.scaleLockedInfo.classList.add('hidden');
+  E.scaleDistRow.classList.add('hidden');
+  E.scaleActRow.classList.add('hidden');
+  E.scalePickRow.classList.remove('hidden');
+  E.scaleHint.textContent = 'Click two points on the canvas to set real-world scale.';
+}
+
+// ═══════════════════════════════════════════════════════════════
+// PATTERN TRANSFORM HELPERS
+// ═══════════════════════════════════════════════════════════════
+function updatePatternXY() {
+  document.getElementById('pat-x').value = Math.round(S.pattern.transform.x);
+  document.getElementById('pat-y').value = Math.round(S.pattern.transform.y);
+}
+
+function centerPattern() {
+  if (!S.pattern.viewport) return;
+  S.pattern.transform.x = (S.canvasW - S.pattern.viewport.width * S.pattern.transform.scale) / 2;
+  S.pattern.transform.y = (S.canvasH - S.pattern.viewport.height * S.pattern.transform.scale) / 2;
+  updatePatternXY();
+}
+
+// ═══════════════════════════════════════════════════════════════
+// PERSISTENCE (localStorage)
+// ═══════════════════════════════════════════════════════════════
+function saveState() {
+  try {
+    const data = {
+      corners: S.corners,
+      grid: S.grid,
+      scale: { ppu: S.scale.ppu, locked: S.scale.locked, realDist: S.scale.realDist, points: S.scale.points },
+      globalInvert: S.globalInvert,
+      pattern: {
+        transform: S.pattern.transform,
+        lineColor: S.pattern.lineColor,
+        highlightColor: S.pattern.highlightColor,
+        lineWeight: S.pattern.lineWeight,
+        globalInvert: S.pattern.globalInvert,
+        groups: S.pattern.groups.map(g => ({
+          id: g.id, dashKey: g.dashKey, dash: g.dash, label: g.label,
+          vis: g.vis, color: g.color, weight: g.weight, active: g.active, invert: g.invert,
+        })),
+      },
+    };
+    localStorage.setItem('linea_state', JSON.stringify(data));
+  } catch (e) { /* storage full */ }
+}
+
+function loadState() {
+  try {
+    const raw = localStorage.getItem('linea_state');
+    if (!raw) return;
+    const data = JSON.parse(raw);
+
+    if (data.corners && data.corners.length === 4) {
+      S.corners = data.corners;
+      S.cornersInit = true;
+    }
+    if (data.grid) Object.assign(S.grid, data.grid);
+    if (data.scale) {
+      S.scale.ppu = data.scale.ppu ?? 80;
+      S.scale.locked = data.scale.locked ?? false;
+      S.scale.realDist = data.scale.realDist ?? 1;
+      S.scale.points = data.scale.points ?? [];
+    }
+    if (data.globalInvert !== undefined) S.globalInvert = data.globalInvert;
+    if (data.pattern) {
+      Object.assign(S.pattern.transform, data.pattern.transform ?? {});
+      S.pattern.lineColor = data.pattern.lineColor ?? '#000000';
+      S.pattern.highlightColor = data.pattern.highlightColor ?? '#ff2222';
+      S.pattern.lineWeight = data.pattern.lineWeight ?? 1;
+      S.pattern.globalInvert = data.pattern.globalInvert ?? false;
+    }
+
+    applyStateToUI();
+  } catch (e) { /* ignore */ }
+}
+
+function applyStateToUI() {
+  const g = S.grid;
+  document.getElementById('unit-inches').classList.toggle('active', g.unit === 'inches');
+  document.getElementById('unit-cm').classList.toggle('active', g.unit === 'cm');
+  document.getElementById('cell-size').value = g.cellSize;
+  document.getElementById('grid-color').value = g.color;
+  document.getElementById('grid-opacity').value = g.opacity;
+  document.getElementById('grid-opacity-val').textContent = Math.round(g.opacity * 100) + '%';
+  document.getElementById('grid-weight').value = g.lineWeight;
+  document.getElementById('grid-weight-val').textContent = g.lineWeight + 'px';
+
+  const scaleUnitLbl = document.getElementById('scale-unit-lbl');
+  if (scaleUnitLbl) scaleUnitLbl.textContent = g.unit === 'inches' ? 'in' : 'cm';
+  const refSqUnit = document.getElementById('ref-sq-unit-lbl');
+  if (refSqUnit) refSqUnit.textContent = g.unit === 'inches' ? 'in' : 'cm';
+
+  if (S.scale.locked && S.scale.points.length >= 2) {
+    const unit = g.unit === 'inches' ? 'in' : 'cm';
+    E.scaleLockedInfo.textContent = `Locked: ${S.scale.ppu.toFixed(1)} px/${unit}`;
+    E.scaleLockedInfo.classList.remove('hidden');
+    E.scalePickRow.classList.add('hidden');
+    E.scaleHint.textContent = 'Scale locked.';
+  }
+
+  const pt = S.pattern.transform;
+  document.getElementById('pat-x').value = Math.round(pt.x);
+  document.getElementById('pat-y').value = Math.round(pt.y);
+  document.getElementById('pat-rot-slider').value = pt.rotation;
+  document.getElementById('pat-rot-num').value = pt.rotation;
+  document.getElementById('pat-scale-slider').value = pt.scale;
+  document.getElementById('pat-scale-val').textContent = Math.round(pt.scale * 100) + '%';
+  document.getElementById('pat-opacity-slider').value = pt.opacity;
+  document.getElementById('pat-opacity-val').textContent = Math.round(pt.opacity * 100) + '%';
+  document.getElementById('line-color').value = S.pattern.lineColor;
+  document.getElementById('highlight-color').value = S.pattern.highlightColor;
+  document.getElementById('line-weight-slider').value = S.pattern.lineWeight;
+  document.getElementById('line-weight-val').textContent = S.pattern.lineWeight + 'px';
+
+  document.getElementById('btn-global-invert').classList.toggle('active', S.globalInvert);
+}
+
+// ═══════════════════════════════════════════════════════════════
+// UI BINDINGS
+// ═══════════════════════════════════════════════════════════════
+function bindUI() {
+
+  // ── Mode tabs ──
+  document.querySelectorAll('.mode-tab').forEach(tab => {
+    tab.addEventListener('click', () => {
+      S.appMode = tab.dataset.mode;
+      document.querySelectorAll('.mode-tab').forEach(t => t.classList.toggle('active', t === tab));
+      document.getElementById('panel-calibrate').classList.toggle('hidden', S.appMode !== 'calibrate');
+      document.getElementById('panel-pattern').classList.toggle('hidden', S.appMode !== 'pattern');
+    });
+  });
+
+  // ── Grid unit ──
+  function setUnit(u) {
+    S.grid.unit = u;
+    document.getElementById('unit-inches').classList.toggle('active', u === 'inches');
+    document.getElementById('unit-cm').classList.toggle('active', u === 'cm');
+    const lbl = u === 'inches' ? 'in' : 'cm';
+    document.getElementById('scale-unit-lbl').textContent = lbl;
+    document.getElementById('ref-sq-unit-lbl').textContent = lbl;
+    saveState();
+  }
+  document.getElementById('unit-inches').addEventListener('click', () => setUnit('inches'));
+  document.getElementById('unit-cm').addEventListener('click', () => setUnit('cm'));
+
+  // ── Cell size ──
+  document.getElementById('cell-size').addEventListener('change', (e) => {
+    S.grid.cellSize = parseFloat(e.target.value);
+    saveState();
+  });
+
+  // ── Grid color / opacity / weight ──
+  document.getElementById('grid-color').addEventListener('input', (e) => { S.grid.color = e.target.value; saveState(); });
+  document.getElementById('grid-opacity').addEventListener('input', (e) => {
+    S.grid.opacity = parseFloat(e.target.value);
+    document.getElementById('grid-opacity-val').textContent = Math.round(S.grid.opacity * 100) + '%';
+    saveState();
+  });
+  document.getElementById('grid-weight').addEventListener('input', (e) => {
+    S.grid.lineWeight = parseFloat(e.target.value);
+    document.getElementById('grid-weight-val').textContent = S.grid.lineWeight + 'px';
+    saveState();
+  });
+
+  // ── Corner mode ──
+  document.getElementById('corner-drag-mode').addEventListener('click', () => {
+    S.cornerMode = 'drag';
+    document.getElementById('corner-drag-mode').classList.add('active');
+    document.getElementById('corner-float-mode').classList.remove('active');
+    E.floatModeInfo.classList.add('hidden');
+    if (S.floatingIdx !== -1) {
+      S.floatingIdx = -1;
+      E.floatToolbar.classList.add('hidden');
+    }
+  });
+  document.getElementById('corner-float-mode').addEventListener('click', () => {
+    S.cornerMode = 'float';
+    document.getElementById('corner-float-mode').classList.add('active');
+    document.getElementById('corner-drag-mode').classList.remove('active');
+    E.floatModeInfo.classList.remove('hidden');
+  });
+
+  // ── Float tools (sidebar) ──
+  function bindFloatTool(sbId, ftId, key) {
+    const sbBtn = document.getElementById(sbId);
+    const ftBtn = document.getElementById(ftId);
+    function toggle() {
+      S.floatTools[key] = !S.floatTools[key];
+      sbBtn.classList.toggle('active', S.floatTools[key]);
+      ftBtn.classList.toggle('active', S.floatTools[key]);
+      if (key === 'loupe' && !S.floatTools.loupe) E.loupeCanvas.style.display = 'none';
+    }
+    sbBtn.addEventListener('click', toggle);
+    ftBtn.addEventListener('click', toggle);
+  }
+  bindFloatTool('sb-loupe', 'ft-loupe', 'loupe');
+  bindFloatTool('sb-snap', 'ft-snap', 'snap');
+  bindFloatTool('sb-crosshair', 'ft-crosshair', 'crosshair');
+
+  E.ftCancel.addEventListener('click', () => {
+    S.floatingIdx = -1;
+    E.floatToolbar.classList.add('hidden');
+    E.mainCanvas.style.cursor = 'default';
+  });
+
+  // ── Scale reference ──
+  document.getElementById('btn-pick-scale').addEventListener('click', () => {
+    S.scale.points = [];
+    S.scale.picking = true;
+    S.scale.locked = false;
+    E.scaleLockedInfo.classList.add('hidden');
+    E.scalePickRow.classList.add('hidden');
+    E.scaleHint.textContent = 'Click point 1 on canvas…';
+  });
+  document.getElementById('btn-lock-scale').addEventListener('click', lockScale);
+  document.getElementById('btn-clear-scale').addEventListener('click', clearScale);
+  document.getElementById('scale-distance').addEventListener('change', (e) => {
+    S.scale.realDist = parseFloat(e.target.value) || 1;
+  });
+
+  // ── Reset calibration ──
+  document.getElementById('btn-reset-cal').addEventListener('click', () => {
+    document.getElementById('modal-reset').classList.remove('hidden');
+  });
+  document.getElementById('modal-cancel').addEventListener('click', () => {
+    document.getElementById('modal-reset').classList.add('hidden');
+  });
+  document.getElementById('modal-confirm').addEventListener('click', () => {
+    document.getElementById('modal-reset').classList.add('hidden');
+    S.cornersInit = false;
+    initCorners();
+    clearScale();
+    saveState();
+  });
+
+  // ── PDF upload ──
+  const pdfInput = document.getElementById('pdf-input');
+  pdfInput.addEventListener('change', (e) => {
+    const file = e.target.files[0];
+    if (file) loadPDF(file);
+  });
+  const dropLabel = document.getElementById('pdf-drop-label');
+  dropLabel.addEventListener('dragover', (e) => { e.preventDefault(); dropLabel.classList.add('drag-over'); });
+  dropLabel.addEventListener('dragleave', () => dropLabel.classList.remove('drag-over'));
+  dropLabel.addEventListener('drop', (e) => {
+    e.preventDefault();
+    dropLabel.classList.remove('drag-over');
+    const file = e.dataTransfer.files[0];
+    if (file && file.type === 'application/pdf') loadPDF(file);
+  });
+
+  // ── Page nav ──
+  document.getElementById('btn-prev-page').addEventListener('click', async () => {
+    if (S.pattern.pageNum > 1) { S.pattern.pageNum--; await renderPDFPage(); }
+  });
+  document.getElementById('btn-next-page').addEventListener('click', async () => {
+    if (S.pattern.pageNum < S.pattern.numPages) { S.pattern.pageNum++; await renderPDFPage(); }
+  });
+
+  // ── Reference square ──
+  document.getElementById('btn-start-ref-sq').addEventListener('click', () => {
+    S.pattern.refSquare.picking = true;
+    S.pattern.refSquare.points = [];
+    E.refSqIdleRow.classList.add('hidden');
+    E.refSqActiveRow.classList.remove('hidden');
+    E.refSqControls.classList.add('hidden');
+    E.refSqHint.textContent = 'Click corner 1 of the reference square on canvas…';
+  });
+  document.getElementById('btn-cancel-ref-sq').addEventListener('click', () => {
+    S.pattern.refSquare.picking = false;
+    S.pattern.refSquare.points = [];
+    E.refSqActiveRow.classList.add('hidden');
+    E.refSqIdleRow.classList.remove('hidden');
+    E.refSqControls.classList.add('hidden');
+    E.refSqHint.textContent = 'Click two corners of the pattern\'s printed reference square.';
+  });
+  document.getElementById('btn-apply-ref-sq').addEventListener('click', applyRefSquareScale);
+  document.getElementById('btn-clear-ref-sq').addEventListener('click', () => {
+    S.pattern.refSquare.points = [];
+    E.refSqControls.classList.add('hidden');
+    E.refSqIdleRow.classList.remove('hidden');
+    E.refSqHint.textContent = 'Click two corners of the pattern\'s printed reference square.';
+  });
+
+  // ── Pattern transform ──
+  document.getElementById('pat-x').addEventListener('change', (e) => {
+    S.pattern.transform.x = parseFloat(e.target.value) || 0; saveState();
+  });
+  document.getElementById('pat-y').addEventListener('change', (e) => {
+    S.pattern.transform.y = parseFloat(e.target.value) || 0; saveState();
+  });
+  document.getElementById('btn-center-pat').addEventListener('click', () => { centerPattern(); saveState(); });
+  document.getElementById('btn-reset-transform').addEventListener('click', () => {
+    S.pattern.transform = { x: 0, y: 0, rotation: 0, scale: 1, opacity: 1 };
+    centerPattern();
+    applyStateToUI();
+    saveState();
+  });
+
+  function bindSliderNum(sliderId, numId, valLabelId, stateKey, fmt) {
+    const slider = document.getElementById(sliderId);
+    const num = numId ? document.getElementById(numId) : null;
+    const valLabel = valLabelId ? document.getElementById(valLabelId) : null;
+    function update(v) {
+      const keys = stateKey.split('.');
+      let obj = S;
+      for (let i = 0; i < keys.length - 1; i++) obj = obj[keys[i]];
+      obj[keys[keys.length-1]] = v;
+      if (slider) slider.value = v;
+      if (num) num.value = v;
+      if (valLabel) valLabel.textContent = fmt(v);
+      saveState();
+    }
+    slider?.addEventListener('input', (e) => update(parseFloat(e.target.value)));
+    num?.addEventListener('change', (e) => update(parseFloat(e.target.value)));
+  }
+
+  bindSliderNum('pat-rot-slider', 'pat-rot-num', null, 'pattern.transform.rotation', v => v + '°');
+  bindSliderNum('pat-scale-slider', null, 'pat-scale-val', 'pattern.transform.scale', v => Math.round(v*100) + '%');
+  bindSliderNum('pat-opacity-slider', null, 'pat-opacity-val', 'pattern.transform.opacity', v => Math.round(v*100) + '%');
+
+  // Line style
+  document.getElementById('line-color').addEventListener('input', (e) => { S.pattern.lineColor = e.target.value; saveState(); });
+  document.getElementById('highlight-color').addEventListener('input', async (e) => {
+    S.pattern.highlightColor = e.target.value;
+    const activeGroup = S.pattern.groups.find(g => g.active);
+    if (activeGroup) activeGroup.canvas = await renderSingleGroup(activeGroup);
+    saveState();
+  });
+  document.getElementById('line-weight-slider').addEventListener('input', (e) => {
+    S.pattern.lineWeight = parseFloat(e.target.value);
+    document.getElementById('line-weight-val').textContent = S.pattern.lineWeight + 'px';
+    saveState();
+  });
+
+  // ── Global invert ──
+  document.getElementById('btn-global-invert').addEventListener('click', () => {
+    S.globalInvert = !S.globalInvert;
+    document.getElementById('btn-global-invert').classList.toggle('active', S.globalInvert);
+    saveState();
+  });
+
+  // ── Project mode ──
+  document.getElementById('btn-project-mode').addEventListener('click', enterProjectMode);
+}
+
+// ═══════════════════════════════════════════════════════════════
+// REFERENCE SQUARE SCALE APPLICATION
+// ═══════════════════════════════════════════════════════════════
+function applyRefSquareScale() {
+  const pts = S.pattern.refSquare.points;
+  if (pts.length < 2 || !S.pattern.viewport) return;
+  const pixelDist = dist(pts[0], pts[1]);
+  const realSize = parseFloat(document.getElementById('ref-sq-size').value) || 1;
+  // The distance in canvas space corresponds to the scale-transformed pattern
+  // We need to find the corresponding distance in viewport space
+  const canvasDist = pixelDist / S.pattern.transform.scale;
+  // ppu in pattern = canvasDist / realSize
+  // We want to scale the pattern so realSize maps to ppu units
+  const newScale = (S.scale.ppu * realSize) / (pixelDist / S.pattern.transform.scale);
+  S.pattern.transform.scale = clamp(newScale, 0.1, 8);
+  document.getElementById('pat-scale-slider').value = S.pattern.transform.scale;
+  document.getElementById('pat-scale-val').textContent = Math.round(S.pattern.transform.scale * 100) + '%';
+  E.refSqControls.classList.add('hidden');
+  E.refSqIdleRow.classList.remove('hidden');
+  E.refSqHint.textContent = 'Scale applied. Pick new points to adjust.';
+  S.pattern.refSquare.points = [];
+  saveState();
+}
+
+// ═══════════════════════════════════════════════════════════════
+// INIT
+// ═══════════════════════════════════════════════════════════════
+function init() {
+  setupCanvas();
+  loadState();
+
+  // Re-init corners if they're all at origin (fresh start)
+  const allZero = S.corners.every(c => c.x === 0 && c.y === 0);
+  if (allZero) initCorners();
+
+  applyStateToUI();
+  bindUI();
+  startRenderLoop();
+}
+
+init();
+</script>
+</body>
+</html>
