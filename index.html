@@ -1,39 +1,3205 @@
 <!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Project Linea — Pattern Projector</title>
-  <style>
-    :root{
-      --bg:#111;--sb:#1c1c1c;--sb-border:#2a2a2a;--sec:#2e2e2e;
-      --tx:#e0e0e0;--tx-dim:#888;--tx-mut:#555;
-      --accent:#4fa3ff;--accent-h:#74b8ff;
-      --danger:#ff5252;--success:#44d988;--warn:#ffb347;
-      --in-bg:#252525;--in-bdr:#3a3a3a;
-      --btn:#2a2a2a;--btn-h:#363636;--sw:284px;
-    }
-    *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
-    html,body{width:100%;height:100%;overflow:hidden;background:var(--bg);color:var(--tx);
-      font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-serif;font-size:12px;line-height:1.4}
-    #app{display:flex;width:100%;height:100vh}
+<html lang="en"><head><meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Project Linea</title>
+<style>html,body,#root{margin:0;padding:0;height:100%;width:100%;}*{box-sizing:border-box;}</style>
+<script crossorigin src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+<script crossorigin src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.6/babel.min.js"></script>
+</head><body><div id="root"></div>
+<script type="text/babel" data-presets="react">
 
-    /* sidebar */
-    #sidebar{width:var(--sw);min-width:var(--sw);background:var(--sb);border-right:1px solid var(--sb-border);
-      display:flex;flex-direction:column;overflow:hidden}
-    .mode-tabs{display:flex;border-bottom:1px solid var(--sb-border);flex-shrink:0}
-    .mode-tab{flex:1;padding:10px 4px;background:none;border:none;border-right:1px solid var(--sb-border);
-      color:var(--tx-dim);cursor:pointer;font-size:11px;font-weight:600;letter-spacing:.4px;text-transform:uppercase;transition:color .15s,background .15s}
-    .mode-tab:last-child{border-right:none}
-    .mode-tab:hover{color:var(--tx);background:var(--btn-h)}
-    .mode-tab.active{color:var(--accent);border-bottom:2px solid var(--accent);margin-bottom:-1px;background:rgba(79,163,255,.06)}
-    .mode-panel{display:flex;flex-direction:column;flex:1;overflow-y:auto}
-    .mode-panel.hidden{display:none}
-    .section{border-bottom:1px solid var(--sec);padding:10px 12px}
-    .section:last-child{border-bottom:none}
-    .st{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.8px;color:var(--tx-mut);margin-bottom:8px}
-    .ss{font-size:10px;font-weight:600;color:var(--tx-dim);margin:6px 0 4px;text-transform:uppercase;letter-spacing:.5px}
-    .row{display:flex;align-items:center;gap:6px;margin-bottom:5px}
+const { useState, useEffect, useRef, useCallback, useMemo } = React;
+
+
+/* ============================================================================
+   PROJECT LINEA
+   Single-file client-side app. PDF.js loaded from cdnjs at runtime.
+   Core: one homography (design-space -> screen-space) drives the grid AND the
+   pattern, so projected lines land at true real-world scale despite keystone.
+   ============================================================================ */
+
+/* ---------------------------------------------------------------------------
+   THEMES (Japandi — warm neutrals, restrained accents)
+   --------------------------------------------------------------------------- */
+const THEMES = {
+  nordicLight: {
+    name: "Nordic Light",
+    bg: "#f8fafc", panel: "#ffffff", panel2: "#f1f5f9", ink: "#0f172a",
+    sub: "#64748b", line: "#e2e8f0", accent: "#2563eb", accentSoft: "#dbeafe",
+    grid: "#2563eb", projBg: "#000000", projGrid: "#00f0ff", projLine: "#ffffff",
+  },
+  fjordSlate: {
+    name: "Fjord Slate",
+    bg: "#0f172a", panel: "#1e293b", panel2: "#111827", ink: "#f8fafc",
+    sub: "#94a3b8", line: "#334155", accent: "#0d9488", accentSoft: "#115e59",
+    grid: "#0d9488", projBg: "#000000", projGrid: "#2dd4bf", projLine: "#ffffff",
+  },
+  birchSage: {
+    name: "Birch & Sage",
+    bg: "#f4f6f4", panel: "#ffffff", panel2: "#edf1ed", ink: "#1c241c",
+    sub: "#5c6b5c", line: "#e2e8e2", accent: "#2d6a4f", accentSoft: "#d8f3dc",
+    grid: "#2d6a4f", projBg: "#000000", projGrid: "#52b788", projLine: "#ffffff",
+  },
+  stockholmMist: {
+    name: "Stockholm Mist",
+    bg: "#f1f5f9", panel: "#ffffff", panel2: "#e2e8f0", ink: "#1e293b",
+    sub: "#475569", line: "#cbd5e1", accent: "#991b1b", accentSoft: "#fee2e2",
+    grid: "#991b1b", projBg: "#000000", projGrid: "#ef4444", projLine: "#ffffff",
+  },
+  gothenburgDusk: {
+    name: "Gothenburg Dusk",
+    bg: "#0b0f19", panel: "#151e2e", panel2: "#0e131f", ink: "#f3f4f6",
+    sub: "#9ca3af", line: "#1f2937", accent: "#06b6d4", accentSoft: "#164e63",
+    grid: "#06b6d4", projBg: "#000000", projGrid: "#22d3ee", projLine: "#ffffff",
+  },
+  copenhagenSky: {
+    name: "Copenhagen Sky",
+    bg: "#e2e8f0", panel: "#ffffff", panel2: "#f1f5f9", ink: "#1e293b",
+    sub: "#64748b", line: "#cbd5e1", accent: "#1d4ed8", accentSoft: "#dbeafe",
+    grid: "#1d4ed8", projBg: "#000000", projGrid: "#3b82f6", projLine: "#ffffff",
+  },
+};
+
+/* ---------------------------------------------------------------------------
+   HOMOGRAPHY MATH
+   Solve 3x3 H mapping 4 source pts (design space rectangle) -> 4 dest pts
+   (the dragged screen quad). Standard 4-point DLT solving 8 unknowns.
+   --------------------------------------------------------------------------- */
+function solveLinear(A, b) {
+  // Gaussian elimination with partial pivoting. A is n x n, b length n.
+  const n = b.length;
+  const M = A.map((row, i) => [...row, b[i]]);
+  for (let col = 0; col < n; col++) {
+    let piv = col;
+    for (let r = col + 1; r < n; r++)
+      if (Math.abs(M[r][col]) > Math.abs(M[piv][col])) piv = r;
+    [M[col], M[piv]] = [M[piv], M[col]];
+    const d = M[col][col];
+    if (Math.abs(d) < 1e-12) continue;
+    for (let c = col; c <= n; c++) M[col][c] /= d;
+    for (let r = 0; r < n; r++) {
+      if (r === col) continue;
+      const f = M[r][col];
+      for (let c = col; c <= n; c++) M[r][c] -= f * M[col][c];
+    }
+  }
+  return M.map((row) => row[n]);
+}
+
+// src,dst: arrays of 4 [x,y]. Returns 3x3 matrix (row-major length 9).
+function computeHomography(src, dst) {
+  const A = [];
+  const b = [];
+  for (let i = 0; i < 4; i++) {
+    const [x, y] = src[i];
+    const [u, v] = dst[i];
+    A.push([x, y, 1, 0, 0, 0, -u * x, -u * y]);
+    b.push(u);
+    A.push([0, 0, 0, x, y, 1, -v * x, -v * y]);
+    b.push(v);
+  }
+  const h = solveLinear(A, b);
+  return [h[0], h[1], h[2], h[3], h[4], h[5], h[6], h[7], 1];
+}
+
+function applyH(H, x, y) {
+  const X = H[0] * x + H[1] * y + H[2];
+  const Y = H[3] * x + H[4] * y + H[5];
+  const W = H[6] * x + H[7] * y + H[8];
+  return [X / W, Y / W];
+}
+
+function isConvex(pts) {
+  if (!pts || pts.length !== 4) return false;
+  const cross = (p1, p2, p3) => {
+    const dx1 = p2[0] - p1[0];
+    const dy1 = p2[1] - p1[1];
+    const dx2 = p3[0] - p2[0];
+    const dy2 = p3[1] - p2[1];
+    return dx1 * dy2 - dy1 * dx2;
+  };
+  const d0 = cross(pts[0], pts[1], pts[2]);
+  const d1 = cross(pts[1], pts[2], pts[3]);
+  const d2 = cross(pts[2], pts[3], pts[0]);
+  const d3 = cross(pts[3], pts[0], pts[1]);
+  return (d0 > 0 && d1 > 0 && d2 > 0 && d3 > 0) || 
+         (d0 < 0 && d1 < 0 && d2 < 0 && d3 < 0);
+}
+
+/* ---------------------------------------------------------------------------
+   PERSISTENCE
+   --------------------------------------------------------------------------- */
+const LS_KEY = "project_linea_v2";
+function loadState() {
+  try {
+    const raw = localStorage.getItem(LS_KEY);
+    return raw ? JSON.parse(raw) : null;
+  } catch {
+    return null;
+  }
+}
+function saveState(s) {
+  try {
+    localStorage.setItem(LS_KEY, JSON.stringify(s));
+  } catch {}
+}
+
+/* ---------------------------------------------------------------------------
+   PDF.js loader (cdnjs)
+   --------------------------------------------------------------------------- */
+const PDFJS_VER = "3.11.174";
+function loadPdfJs() {
+  if (window.pdfjsLib) return Promise.resolve(window.pdfjsLib);
+  return new Promise((res, rej) => {
+    const s = document.createElement("script");
+    s.src = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${PDFJS_VER}/pdf.min.js`;
+    s.onload = () => {
+      window.pdfjsLib.GlobalWorkerOptions.workerSrc =
+        `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${PDFJS_VER}/pdf.worker.min.js`;
+      res(window.pdfjsLib);
+    };
+    s.onerror = rej;
+    document.head.appendChild(s);
+  });
+}
+
+/* ---------------------------------------------------------------------------
+   PAGE SIZE PRESETS (mm)
+   --------------------------------------------------------------------------- */
+const PAGE_SIZES = {
+  A4: { w: 210, h: 297 }, A3: { w: 297, h: 420 }, A0: { w: 841, h: 1189 },
+  Letter: { w: 215.9, h: 279.4 }, Legal: { w: 215.9, h: 355.6 },
+};
+const MM_PER_IN = 25.4;
+
+/* ---------------------------------------------------------------------------
+   CUTTING-MAT BOARD PRESETS
+   Physical fabric-cutting mats. Defined in inches, stored in mm internally.
+   Dimensions given short × long (portrait); the orientation toggle swaps them.
+   --------------------------------------------------------------------------- */
+const MAT_SIZES_IN = {
+  '9 × 12 in': { w: 9, h: 12 },
+  '12 × 18 in': { w: 12, h: 18 },
+  '18 × 24 in': { w: 18, h: 24 },
+  '24 × 36 in': { w: 24, h: 36 },
+  '36 × 48 in': { w: 36, h: 48 },
+  '36 × 60 in': { w: 36, h: 60 },
+};
+const MAT_SIZES = Object.fromEntries(
+  Object.entries(MAT_SIZES_IN).map(([k, v]) => [k, { w: v.w * MM_PER_IN, h: v.h * MM_PER_IN }])
+);
+
+/* ---------------------------------------------------------------------------
+   DASH SIGNATURE ENGINE  (verified against Elbe A–O and Mood 34–52 PDFs)
+
+   A size = a distinct dash array. We do NOT bucket into named styles (that
+   collapses near-identical sizes). Instead we keep the raw on/off pattern as a
+   canonical signature, detect the pattern's legend (a column of short dashed
+   swatches beside size labels), and then SNAP every stroke on every page to the
+   nearest legend signature. Strokes matching nothing stay "construction".
+   --------------------------------------------------------------------------- */
+
+// Round + drop trailing zeros so PDF jitter (e.g. 21.9 vs 22.1) collapses.
+function canonDash(arr) {
+  if (!arr || arr.length === 0) return "SOLID";
+  let a = arr.map((n) => Math.round(n * 10) / 10);
+  while (a.length > 2 && a[a.length - 1] === 0 && a[a.length - 2] === 0) a = a.slice(0, -2);
+  if (a.every((x) => x === 0)) return "SOLID";
+  return a.join("/");
+}
+
+// Parse a canonical signature back into numbers (null for SOLID).
+function sigToArray(sig) {
+  if (sig === "SOLID") return [];
+  return sig.split("/").map(Number);
+}
+
+// Similarity between two signatures: same length, each element within tol%.
+function dashSimilar(sigA, sigB, tol = 0.22) {
+  if (sigA === "SOLID" || sigB === "SOLID") return sigA === sigB;
+  const a = sigToArray(sigA), b = sigToArray(sigB);
+  if (a.length !== b.length) return false;
+  for (let i = 0; i < a.length; i++) {
+    if (Math.abs(a[i] - b[i]) > tol * Math.max(a[i], b[i], 1)) return false;
+  }
+  return true;
+}
+
+// Reduce a repeating dash pattern to its fundamental period, so the same dash
+// captured as "X/Y" on one stroke and "X/Y/X/Y" on another compares equal.
+function reducePeriod(a) {
+  for (let p = 1; p <= a.length / 2; p++) {
+    if (a.length % p !== 0) continue;
+    let ok = true;
+    for (let i = p; i < a.length; i++) {
+      const base = a[i % p];
+      if (Math.abs(a[i] - base) > Math.max(base, a[i], 1) * 0.15) { ok = false; break; }
+    }
+    if (ok) return a.slice(0, p);
+  }
+  return a;
+}
+
+// Distance metric to pick the NEAREST legend signature for snapping.
+// Two regimes:
+//  • Normal dashes: MAX per-element relative deviation, so every dash element
+//    must match closely (keeps 2/2, 4/4, 8/4 etc. cleanly separated).
+//  • Near-solid LONG dashes (a big first element with a tiny gap, e.g. H 30.7/0.8
+//    or O 113.4/11.3): the long dash LENGTH is unreliable because clipping/
+//    flattening cuts the dash at different points (H shows up as anything from
+//    30 to 43). So we compare the gap-to-dash RATIO instead, which is stable per
+//    line style. This snaps every H fragment to H and every O to O, while still
+//    separating H (ratio ~0.03) from O (ratio ~0.10) and from a real 28/14 line.
+// Repeating patterns are period-reduced first so X/Y and X/Y/X/Y are equivalent.
+function dashDistance(sigA, sigB) {
+  if (sigA === "SOLID" || sigB === "SOLID") return sigA === sigB ? 0 : Infinity;
+  const a = reducePeriod(sigToArray(sigA));
+  const b = reducePeriod(sigToArray(sigB));
+  if (a.length !== b.length) return Infinity;
+  const longish = (arr) => {
+    const mx = Math.max(...arr);
+    const rest = arr.filter((x) => x !== mx);
+    const avgRest = rest.length ? rest.reduce((s, x) => s + x, 0) / rest.length : 0;
+    return mx > 20 && mx > avgRest * 6;
+  };
+  if (longish(a) && longish(b)) {
+    const ra = Math.min(...a) / Math.max(...a);
+    const rb = Math.min(...b) / Math.max(...b);
+    return Math.abs(ra - rb) / Math.max(ra, rb, 0.01);
+  }
+  let worst = 0;
+  for (let i = 0; i < a.length; i++) {
+    const dev = Math.abs(a[i] - b[i]) / Math.max(a[i], b[i], 1);
+    if (dev > worst) worst = dev;
+  }
+  return worst;
+}
+
+// Snap an observed signature to the closest legend entry (or null if too far).
+function snapToLegend(sig, legendSigs, tol = 0.18) {
+  let best = null, bd = Infinity;
+  for (const ls of legendSigs) {
+    const d = dashDistance(sig, ls);
+    if (d < bd) { bd = d; best = ls; }
+  }
+  return bd <= tol ? best : null;
+}
+
+// Render a dash array into a small swatch canvas, scaled to fit width.
+function dashToScreenPattern(sig) {
+  if (sig === "SOLID") return [];
+  const a = sigToArray(sig);
+  const sum = a.reduce((s, x) => s + x, 0) || 1;
+  const scale = Math.min(3, 40 / sum); // keep swatches legible
+  return a.map((x) => Math.max(0.5, x * scale));
+}
+
+/* ---------------------------------------------------------------------------
+   VECTOR EXTRACTION from a PDF.js page operator list.
+   Returns { strokes:[{sig, pts:[[x,y]...], width}], textItems:[{str,x,y}] }
+   in PDF page coordinates (y-down, scaled by `scale`).
+   --------------------------------------------------------------------------- */
+// Clip a polyline to an axis-aligned box, returning a list of in-bounds polyline
+// pieces. Uses Liang-Barsky on each segment; consecutive segments that stay
+// inside (and connect) are stitched into one continuous piece so a seam line
+// crossing the page stays unbroken within the page.
+function clipPolyline(pts, xmin, ymin, xmax, ymax) {
+  const pieces = [];
+  let cur = [];
+  const clipSeg = (x0, y0, x1, y1) => {
+    let t0 = 0, t1 = 1;
+    const dx = x1 - x0, dy = y1 - y0;
+    const p = [-dx, dx, -dy, dy];
+    const q = [x0 - xmin, xmax - x0, y0 - ymin, ymax - y0];
+    for (let i = 0; i < 4; i++) {
+      if (p[i] === 0) { if (q[i] < 0) return null; }
+      else {
+        const r = q[i] / p[i];
+        if (p[i] < 0) { if (r > t1) return null; if (r > t0) t0 = r; }
+        else { if (r < t0) return null; if (r < t1) t1 = r; }
+      }
+    }
+    return [x0 + t0 * dx, y0 + t0 * dy, x0 + t1 * dx, y0 + t1 * dy, t0, t1];
+  };
+  for (let i = 0; i < pts.length - 1; i++) {
+    const [x0, y0] = pts[i], [x1, y1] = pts[i + 1];
+    const c = clipSeg(x0, y0, x1, y1);
+    if (!c) { if (cur.length) { pieces.push(cur); cur = []; } continue; }
+    const [cx0, cy0, cx1, cy1, t0, t1] = c;
+    if (cur.length === 0) cur.push([cx0, cy0]);
+    else {
+      const last = cur[cur.length - 1];
+      if (Math.abs(last[0] - cx0) > 0.5 || Math.abs(last[1] - cy0) > 0.5) {
+        pieces.push(cur); cur = [[cx0, cy0]];
+      }
+    }
+    cur.push([cx1, cy1]);
+    if (t1 < 1) { pieces.push(cur); cur = []; }
+  }
+  if (cur.length) pieces.push(cur);
+  return pieces;
+}
+
+// Flatten a cubic Bézier into line segments appended to `pts`. p0 is the last
+// point already in `pts`; (c1,c2,end) are the three control/end points. The
+// number of segments scales with the curve's rough length so long shallow
+// curves (e.g. horizontal seam lines spanning many page-widths) stay smooth
+// instead of breaking into a few visible straight chords.
+function flattenCubic(pts, c1x, c1y, c2x, c2y, ex, ey) {
+  const p0 = pts[pts.length - 1];
+  if (!p0) { pts.push([ex, ey]); return; }
+  const [x0, y0] = p0;
+  // estimate length via control polygon
+  const d = Math.hypot(c1x - x0, c1y - y0) + Math.hypot(c2x - c1x, c2y - c1y) + Math.hypot(ex - c2x, ey - c2y);
+  // ~1 segment per 5 px of curve, clamped generously so long shallow seam
+  // lines stay visually smooth even when projected large.
+  const steps = Math.max(8, Math.min(220, Math.ceil(d / 5)));
+  for (let i = 1; i <= steps; i++) {
+    const t = i / steps, mt = 1 - t;
+    const a = mt * mt * mt, b = 3 * mt * mt * t, c = 3 * mt * t * t, dd = t * t * t;
+    pts.push([
+      a * x0 + b * c1x + c * c2x + dd * ex,
+      a * y0 + b * c1y + c * c2y + dd * ey,
+    ]);
+  }
+}
+
+async function extractPageVectors(page, scale, cropMarginIn = 0) {
+  // cropMarginIn: how much to trim off EACH edge of every page before tiling,
+  // in inches. Tiled patterns vary: some print edge-to-edge (margin 0, e.g.
+  // Fremantle), others include an overlap/glue margin that must be cut so tiles
+  // snap together. We clip strokes to the inset rectangle and shift them so the
+  // trimmed top-left becomes (0,0); the effective tile size shrinks by 2*margin.
+  const OPS = window.pdfjsLib.OPS;
+  const opList = await page.getOperatorList();
+  const vp = page.getViewport({ scale });
+  const mPx = Math.max(0, cropMarginIn) * 72 * scale; // margin in device px
+
+  // matrix stack
+  let ctm = vp.transform.slice(); // base device transform
+  const stack = [];
+  const mul = (m, n) => [
+    m[0] * n[0] + m[2] * n[1], m[1] * n[0] + m[3] * n[1],
+    m[0] * n[2] + m[2] * n[3], m[1] * n[2] + m[3] * n[3],
+    m[0] * n[4] + m[2] * n[5] + m[4], m[1] * n[4] + m[3] * n[5] + m[5],
+  ];
+  const apply = (m, x, y) => [m[0] * x + m[2] * y + m[4], m[1] * x + m[3] * y + m[5]];
+
+  let curDash = [];
+  let lineWidth = 1;
+  let cur = []; // current subpath pts in user space
+  let subpaths = []; // collected subpaths for the pending path
+  const strokes = [];
+
+  const fn = opList.fnArray, args = opList.argsArray;
+  for (let i = 0; i < fn.length; i++) {
+    const a = args[i];
+    switch (fn[i]) {
+      case OPS.save:
+        stack.push({
+          ctm: ctm.slice(),
+          curDash: curDash.slice(),
+          lineWidth: lineWidth
+        });
+        break;
+      case OPS.restore:
+        if (stack.length) {
+          const state = stack.pop();
+          ctm = state.ctm;
+          curDash = state.curDash;
+          lineWidth = state.lineWidth;
+        }
+        break;
+      case OPS.transform: ctm = mul(ctm, a); break;
+      case OPS.setDash: curDash = (a[0] || []).slice(); break;
+      case OPS.setLineWidth: lineWidth = a[0]; break;
+      case OPS.moveTo: cur = [[a[0], a[1]]]; subpaths.push(cur); break;
+      case OPS.lineTo: cur.push([a[0], a[1]]); break;
+      case OPS.curveTo:
+        // cubic from current point; flatten into smooth segments
+        flattenCubic(cur, a[0], a[1], a[2], a[3], a[4], a[5]); break;
+      case OPS.curveTo2: {
+        const p0 = cur[cur.length - 1] || [a[0], a[1]];
+        flattenCubic(cur, p0[0], p0[1], a[0], a[1], a[2], a[3]); break;
+      }
+      case OPS.curveTo3:
+        flattenCubic(cur, a[0], a[1], a[2], a[3], a[2], a[3]); break;
+      case OPS.rectangle: {
+        const x = a[0], y = a[1], w = a[2], h = a[3];
+        cur = [[x, y], [x + w, y], [x + w, y + h], [x, y + h], [x, y]];
+        subpaths.push(cur);
+        break;
+      }
+      case OPS.constructPath: {
+        // newer PDF.js batches path ops here: a[0]=ops, a[1]=coords
+        const pops = a[0], coords = a[1]; let ci = 0;
+        for (let k = 0; k < pops.length; k++) {
+          const op = pops[k];
+          if (op === OPS.moveTo) { cur = [[coords[ci], coords[ci + 1]]]; subpaths.push(cur); ci += 2; }
+          else if (op === OPS.lineTo) { cur.push([coords[ci], coords[ci + 1]]); ci += 2; }
+          else if (op === OPS.curveTo) {
+            // cubic with 3 control points; flatten from current point
+            flattenCubic(cur, coords[ci], coords[ci + 1], coords[ci + 2], coords[ci + 3], coords[ci + 4], coords[ci + 5]);
+            ci += 6;
+          }
+          else if (op === OPS.curveTo2) {
+            const p0 = cur[cur.length - 1] || [coords[ci], coords[ci + 1]];
+            flattenCubic(cur, p0[0], p0[1], coords[ci], coords[ci + 1], coords[ci + 2], coords[ci + 3]);
+            ci += 4;
+          }
+          else if (op === OPS.curveTo3) {
+            flattenCubic(cur, coords[ci], coords[ci + 1], coords[ci + 2], coords[ci + 3], coords[ci + 2], coords[ci + 3]);
+            ci += 4;
+          }
+          else if (op === OPS.rectangle) {
+            const x = coords[ci], y = coords[ci + 1], w = coords[ci + 2], h = coords[ci + 3];
+            cur = [[x, y], [x + w, y], [x + w, y + h], [x, y + h], [x, y]];
+            subpaths.push(cur);
+            ci += 4;
+          }
+          else if (op === OPS.closePath) {
+            if (cur.length >= 2) {
+              const start = cur[0];
+              const end = cur[cur.length - 1];
+              if (Math.abs(start[0] - end[0]) > 0.01 || Math.abs(start[1] - end[1]) > 0.01) {
+                cur.push([start[0], start[1]]);
+              }
+            }
+          }
+          else { ci += 0; }
+        }
+        break;
+      }
+      case OPS.closePath:
+        if (cur.length >= 2) {
+          const start = cur[0];
+          const end = cur[cur.length - 1];
+          if (Math.abs(start[0] - end[0]) > 0.01 || Math.abs(start[1] - end[1]) > 0.01) {
+            cur.push([start[0], start[1]]);
+          }
+        }
+        break;
+      case OPS.stroke:
+      case OPS.closeStroke: {
+        const sig = canonDash(curDash);
+        const all = subpaths.length ? subpaths : (cur.length ? [cur] : []);
+        for (const sp of all) {
+          if (sp.length < 2) continue;
+          const dev = sp.map(([x, y]) => apply(ctm, x, y));
+          // Clip to the (optionally inset) page rectangle. The PDF draws strokes
+          // that extend well beyond the page edge; the printed page only shows
+          // the part inside. Clipping each tile to its bounds — minus any crop
+          // margin — is what makes adjacent tiles line up seamlessly. Strokes are
+          // then shifted so the trimmed top-left is the origin.
+          const pieces = clipPolyline(dev, mPx, mPx, vp.width - mPx, vp.height - mPx);
+          for (const piece of pieces) {
+            if (piece.length >= 2) {
+              const shifted = mPx ? piece.map(([x, y]) => [x - mPx, y - mPx]) : piece;
+              strokes.push({ sig, pts: shifted, width: lineWidth });
+            }
+          }
+        }
+        cur = []; subpaths = [];
+        break;
+      }
+      case OPS.endPath: case OPS.fill: case OPS.eoFill:
+        cur = []; subpaths = []; break;
+      default: break;
+    }
+  }
+
+  // text items (for legend labels) via getTextContent — shifted to trimmed origin
+  let textItems = [];
+  try {
+    const tc = await page.getTextContent();
+    textItems = tc.items.map((it) => {
+      const t = it.transform;
+      const v = vp.transform;
+      const combinedA = v[0] * t[0] + v[2] * t[1];
+      const combinedB = v[1] * t[0] + v[3] * t[1];
+      const angle = Math.atan2(combinedB, combinedA);
+      const fontScale = Math.hypot(combinedA, combinedB);
+      const [x, y] = apply(v, t[4], t[5]);
+      return { str: it.str, x: x - mPx, y: y - mPx, angle, fontScale };
+    });
+  } catch {}
+
+  // Real page size: PDF points / 72 = inches. This is the TRUE physical tile
+  // size; subtract the crop margin from BOTH edges so scale stays correct.
+  const vp1 = page.getViewport({ scale: 1 });
+  const realWIn = vp1.width / 72 - 2 * Math.max(0, cropMarginIn);
+  const realHIn = vp1.height / 72 - 2 * Math.max(0, cropMarginIn);
+  return {
+    strokes, textItems,
+    width: vp.width - 2 * mPx, height: vp.height - 2 * mPx,
+    realWIn, realHIn,
+  };
+}
+
+/* ---------------------------------------------------------------------------
+   LEGEND DETECTION across all pages.
+   A legend = a vertical column of short dashed swatch strokes, each beside a
+   size label ("A" / "SIZE 34"). We find the page with the most distinct short
+   dashed strokes arranged in a column, then pair each with nearest label text.
+   Returns [{sig, label}] or [] if none found.
+   --------------------------------------------------------------------------- */
+function detectLegend(pageVectors, forcedPageIdx = null) {
+  // --- PASS A: Vertical column of horizontal swatches ---
+  const labelTextA = (texts, row) => {
+    let cand = null, cd = 1e9;
+    for (const t of texts) {
+      if (!t.str.trim()) continue;
+      const dy = Math.abs(t.y - row.y);
+      const dx = t.x - row.x1;
+      if (dy < 16 && dx > -12 && dx < 320) {
+        const d = dy + Math.abs(dx) * 0.1;
+        if (d < cd) { cd = d; cand = t.str.trim(); }
+      }
+    }
+    if (cand) {
+      const m = cand.match(/(?:SIZE\s*)?([A-Z0-9]{1,4})\b/i);
+      if (m) return m[1].toUpperCase();
+    }
+    return null;
+  };
+
+  const pageRowsA = (pv) => {
+    let sw = pv.strokes.filter((s) => {
+      if (s.sig === "SOLID") return false;
+      const xs = s.pts.map((p) => p[0]), ys = s.pts.map((p) => p[1]);
+      const w = Math.max(...xs) - Math.min(...xs);
+      const h = Math.max(...ys) - Math.min(...ys);
+      return w > 15 && w < 420 && h < 8; // wide-ish, near-horizontal
+    });
+    sw.sort((a, b) =>
+      a.pts[0][1] - b.pts[0][1] ||
+      Math.min(...a.pts.map((p) => p[0])) - Math.min(...b.pts.map((p) => p[0])));
+    const merged = [];
+    for (const s of sw) {
+      const y = s.pts[0][1];
+      const x0 = Math.min(...s.pts.map((p) => p[0]));
+      const x1 = Math.max(...s.pts.map((p) => p[0]));
+      const last = merged[merged.length - 1];
+      const compatible = last && Math.abs(last.y - y) < 5 &&
+        (last.sig === s.sig || last.sig.startsWith(s.sig) || s.sig.startsWith(last.sig));
+      if (compatible) {
+        last.x0 = Math.min(last.x0, x0);
+        last.x1 = Math.max(last.x1, x1);
+        if (s.sig.length > last.sig.length) last.sig = s.sig;
+      } else {
+        merged.push({ y, sig: s.sig, x0, x1 });
+      }
+    }
+    const rows = [];
+    for (const m of merged) {
+      if (!rows.length || Math.abs(rows[rows.length - 1].y - m.y) > 6) rows.push(m);
+    }
+    return rows;
+  };
+
+  const runsOfA = (rows) => {
+    if (rows.length < 3) return [];
+    const out = [];
+    let cur = [rows[0]];
+    let med = 0;
+    for (let i = 1; i < rows.length; i++) {
+      const prev = cur[cur.length - 1];
+      const gap = rows[i].y - prev.y;
+      const sameX = Math.abs(rows[i].x0 - prev.x0) < 32;
+      if (cur.length >= 2) {
+        const gs = [];
+        for (let k = 1; k < cur.length; k++) gs.push(cur[k].y - cur[k - 1].y);
+        gs.sort((a, b) => a - b);
+        med = gs[Math.floor(gs.length / 2)] || med;
+      } else if (med === 0) {
+        med = gap;
+      }
+      if (sameX && gap < med * 2.3 + 6) cur.push(rows[i]);
+      else { out.push(cur); cur = [rows[i]]; }
+    }
+    out.push(cur);
+    return out.filter((r) => r.length >= 3);
+  };
+
+  const bestRunForPageA = (pv) => {
+    if (!pv) return null;
+    const rows = pageRowsA(pv);
+    const runs = runsOfA(rows);
+    if (!runs.length) return null;
+    const texts = pv.textItems || [];
+    let best = null;
+    for (const run of runs) {
+      run.forEach((r) => { r.label = labelTextA(texts, r); });
+      const labeled = run.filter((r) => r.label).length;
+      const score = run.length * 10 + labeled;
+      if (!best || score > best.score) best = { run, labeled, score, len: run.length };
+    }
+    return best;
+  };
+
+  // --- PASS B: Horizontal row of vertical swatches ---
+  const labelTextB = (texts, col) => {
+    let cand = null, cd = 1e9;
+    for (const t of texts) {
+      if (!t.str.trim()) continue;
+      const dy = Math.min(Math.abs(t.y - col.y1), Math.abs(t.y - col.y0));
+      const dx = Math.abs(t.x - col.x);
+      if (dy < 24 && dx < 24) {
+        const d = dy + dx * 0.5;
+        if (d < cd) { cd = d; cand = t.str.trim(); }
+      }
+    }
+    if (cand) {
+      const m = cand.match(/(?:SIZE\s*)?([A-Z0-9]{1,4})\b/i);
+      if (m) return m[1].toUpperCase();
+    }
+    return null;
+  };
+
+  const pageColsB = (pv) => {
+    const sw = pv.strokes.filter((s) => {
+      const xs = s.pts.map((p) => p[0]), ys = s.pts.map((p) => p[1]);
+      const w = Math.max(...xs) - Math.min(...xs);
+      const h = Math.max(...ys) - Math.min(...ys);
+      return w < 8 && h > 1; // near-vertical segments
+    });
+    sw.sort((a, b) =>
+      Math.min(...a.pts.map((p) => p[0])) - Math.min(...b.pts.map((p) => p[0])) ||
+      Math.min(...a.pts.map((p) => p[1])) - Math.min(...b.pts.map((p) => p[1])));
+    
+    const merged = [];
+    for (const s of sw) {
+      const x = s.pts[0][0];
+      const y0 = Math.min(...s.pts.map((p) => p[1]));
+      const y1 = Math.max(...s.pts.map((p) => p[1]));
+      const last = merged[merged.length - 1];
+      const compatible = last && Math.abs(last.x - x) < 5 &&
+        (y0 <= last.y1 + 20 && y1 >= last.y0 - 20);
+      if (compatible) {
+        last.y0 = Math.min(last.y0, y0);
+        last.y1 = Math.max(last.y1, y1);
+        if (last.sig === "SOLID" && s.sig !== "SOLID") last.sig = s.sig;
+        else if (s.sig !== "SOLID" && s.sig.length > last.sig.length) last.sig = s.sig;
+      } else {
+        merged.push({ x, sig: s.sig, y0, y1 });
+      }
+    }
+    
+    const cols = [];
+    for (const m of merged) {
+      const h = m.y1 - m.y0;
+      if (h > 80 && h < 420) {
+        if (!cols.length || Math.abs(cols[cols.length - 1].x - m.x) > 6) {
+          cols.push(m);
+        }
+      }
+    }
+    return cols;
+  };
+
+  const runsOfB = (cols) => {
+    if (cols.length < 3) return [];
+    const out = [];
+    let cur = [cols[0]];
+    let med = 0;
+    for (let i = 1; i < cols.length; i++) {
+      const prev = cur[cur.length - 1];
+      const gap = cols[i].x - prev.x;
+      const sameY = Math.abs(cols[i].y0 - prev.y0) < 40;
+      if (cur.length >= 2) {
+        const gs = [];
+        for (let k = 1; k < cur.length; k++) gs.push(cur[k].x - cur[k - 1].x);
+        gs.sort((a, b) => a - b);
+        med = gs[Math.floor(gs.length / 2)] || med;
+      } else if (med === 0) {
+        med = gap;
+      }
+      if (sameY && gap < med * 2.3 + 6) cur.push(cols[i]);
+      else { out.push(cur); cur = [cols[i]]; }
+    }
+    out.push(cur);
+    return out.filter((r) => r.length >= 3);
+  };
+
+  const bestRunForPageB = (pv) => {
+    if (!pv) return null;
+    const cols = pageColsB(pv);
+    const runs = runsOfB(cols);
+    if (!runs.length) return null;
+    const texts = pv.textItems || [];
+    let best = null;
+    for (const run of runs) {
+      run.forEach((r) => { r.label = labelTextB(texts, r); });
+      const labeled = run.filter((r) => r.label).length;
+      const score = run.length * 10 + labeled;
+      if (!best || score > best.score) best = { run, labeled, score, len: run.length };
+    }
+    return best;
+  };
+
+  const bestRunForPage = (pv) => {
+    const bA = bestRunForPageA(pv);
+    const bB = bestRunForPageB(pv);
+    if (!bA && !bB) return null;
+    if (bA && !bB) return bA;
+    if (!bA && bB) return bB;
+    return bA.score >= bB.score ? bA : bB;
+  };
+
+  const finalize = (run) => {
+    return run.map((r, i) => ({ sig: r.sig, label: r.label || `Size ${i + 1}` }));
+  };
+
+  if (forcedPageIdx != null) {
+    const b = bestRunForPage(pageVectors[forcedPageIdx]);
+    return b ? finalize(b.run) : [];
+  }
+
+  let best = null;
+  pageVectors.forEach((pv) => {
+    const b = bestRunForPage(pv);
+    if (b && (!best || b.score > best.score)) best = b;
+  });
+  if (!best) return [];
+  return finalize(best.run);
+}
+
+/* Map a detected legend [{sig,label}] into the pattern.sizes UI model. Shared
+   by the initial load and any later re-detection so colors/fields stay
+   consistent. */
+const SIZE_PALETTE = ["#1a1a1a", "#c0392b", "#2980b9", "#27ae60", "#8e44ad",
+  "#d35400", "#16a085", "#9b59b6", "#e74c3c", "#2c3e50",
+  "#e67e22", "#7f8c8d", "#3498db", "#2ecc71", "#d35400"];
+function buildSizesFromLegend(legend) {
+  return legend.map((L, i) => ({
+    id: i, sig: L.sig, label: L.label,
+    color: SIZE_PALETTE[i % SIZE_PALETTE.length], thickness: 1.4, visible: true, invert: false,
+  }));
+}
+
+/* Normalize a persisted pattern so old localStorage data (pre-slots model)
+   can't crash the new code. Fills any missing field with a safe default and
+   converts the old assign-map layout into the new slots list. */
+function migratePattern(p) {
+  const base = {
+    loaded: false, pageSize: "A4", numPages: 0, excluded: [],
+    gridCols: 6, slots: [], sizes: [], selectedSize: "all", selectMode: "solo",
+    legendFound: false, legendPageIdx: null, invertAll: false, transparency: 1, pageBgColor: "#ffffff",
+    cropMarginIn: 0,
+    lineColor: "#1a1a1a", highlightColor: "#e2725b", rotate: 0, scale: 1,
+    opacity: 1, assembled: false, thumbs: [],
+  };
+  if (!p || typeof p !== "object") return base;
+  const m = { ...base, ...p };
+  if (!Array.isArray(m.slots)) m.slots = [];
+  if (!Array.isArray(m.sizes)) m.sizes = [];
+  if (!Array.isArray(m.excluded)) m.excluded = [];
+  if (!Array.isArray(m.thumbs)) m.thumbs = [];
+  if (m.slots.length === 0 && p.assign && typeof p.assign === "object") {
+    const pages = Object.values(p.assign).filter((v) => typeof v === "number");
+    m.slots = pages.map((pg) => ({ type: "page", page: pg }));
+  }
+  // The rendered page canvases and extracted vectors live only in memory and
+  // are gone after any reload. So a restored pattern can never be "loaded" —
+  // reset it so the user re-opens the PDF, while keeping their size labels/colors.
+  m.loaded = false;
+  m.assembled = false;
+  m.numPages = 0;
+  m.slots = [];
+  m.thumbs = [];
+  delete m.assign; delete m.gridRows;
+  return m;
+}
+
+/* ===========================================================================
+   ROOT COMPONENT
+   =========================================================================== */
+function ProjectLinea() {
+  const persisted = useMemo(() => loadState(), []);
+  const [theme, setTheme] = useState(persisted?.theme || "nordicLight");
+  const [tab, setTab] = useState("calibrate");
+  const T = THEMES[theme] || THEMES["nordicLight"];
+
+  /* ----- CALIBRATION STATE (single source of truth) ----- */
+  const [cal, setCal] = useState(
+    persisted?.cal || {
+      boardPreset: "18 × 24 in",
+      boardW: 18 * 25.4, boardH: 24 * 25.4, // in mm always internally
+      unit: "in", // 'cm' | 'in'  (locks grid unit)
+      cell: 1, // subdivision in locked unit
+      orientation: "portrait",
+      gridThickness: 1.2,
+      circleSize: 16,
+      gridColor: null, // overrides theme grid if set
+      gridOpacity: 1,
+      majorEvery: 5, // bold every Nth gridline (0 = off) — mimics a real mat
+      projBg: "#000000", // projection background color (chosen via the in-projection toggle)
+      cursorMode: "crosshair", // persisted cursor assist, used during projection too
+      corners: null, // 4 screen pts [tl,tr,br,bl] or null -> auto
+      scaleFactor: null, // px per (locked unit) in design space; null=auto
+      saved: false,
+    }
+  );
+
+  /* ----- PATTERN STATE ----- */
+  const [pattern, setPattern] = useState(
+    persisted?.pattern ? migratePattern(persisted.pattern) : {
+      loaded: false,
+      pageSize: "A4",
+      numPages: 0,
+      excluded: [], // page indices toggled out
+      gridCols: 6, // layout flows into this many columns
+      slots: [], // ordered list: { type:'page', page:i } | { type:'blank' }
+      sizes: [], // {id,sig,label,color,thickness,visible,invert}
+      selectedSize: "all",
+      selectMode: "solo", // 'solo' | 'dim'
+      legendFound: false,
+      legendPageIdx: null, // null = auto-detect; number = user-chosen swatch page
+      cropMarginIn: 0, // trim each page edge by this many inches before tiling
+      invertAll: false,
+      transparency: 1, // page backing opacity behind vector lines
+      pageBgColor: "#ffffff",
+      lineColor: "#1a1a1a",
+      highlightColor: "#e2725b",
+      rotate: 0,
+      scale: 1,
+      opacity: 1,
+      assembled: false,
+    }
+  );
+
+  /* ----- PROJECT POSITION STATE ----- */
+  const [pos, setPos] = useState(
+    persisted?.pos || { x: 0, y: 0, scale: 1, overlap: 0, projPageSize: "A4" }
+  );
+
+  // persist everything. Strip the heavy/ephemeral pattern fields — thumbnails
+  // and rendered geometry can't be meaningfully restored (canvases are gone on
+  // reload) and would bloat localStorage. Keep settings + size labels/colors.
+  useEffect(() => {
+    const { thumbs, slots, ...patternLite } = pattern;
+    saveState({ theme, cal, pattern: { ...patternLite, loaded: false, assembled: false }, pos });
+  }, [theme, cal, pattern, pos]);
+
+  // PDF runtime (not persisted — re-rendered on demand)
+  const pdfRef = useRef(null); // pdf doc
+  const pageCanvasesRef = useRef([]); // rendered <canvas> per page
+  const pageVectorsRef = useRef([]); // extracted vector strokes per page
+  const legendRef = useRef([]); // detected legend [{sig,label}]
+  const [pdfReady, setPdfReady] = useState(false);
+  const [loadingPdf, setLoadingPdf] = useState(false);
+  const fileBufferRef = useRef(persisted?.pdfBufferB64 ? "stored" : null);
+
+  /* ===== styles ===== */
+  const S = makeStyles(T);
+
+  return (
+    <div style={S.root}>
+      <FontInjector T={T} />
+      <header style={S.header}>
+        <div style={S.brand}>
+          <img
+            src="./icon.png"
+            alt="Project Linea"
+            style={S.brandIcon}
+            onError={(e) => { e.currentTarget.style.display = "none"; }}
+          />
+          <div>
+            <div style={S.brandName}>PROJECT LINEA</div>
+            <div style={S.brandSub}>pattern projector · true-scale calibration</div>
+          </div>
+        </div>
+        <nav style={S.tabs}>
+          {[
+            ["calibrate", "Calibrate Board", "1"],
+            ["load", "Load Pattern", "2"],
+            ["project", "Project Pattern", "3"],
+          ].map(([k, label, num]) => (
+            <button
+              key={k}
+              onClick={() => setTab(k)}
+              style={{ ...S.tab, ...(tab === k ? S.tabActive : {}) }}
+            >
+              <span style={{
+                display: "inline-flex",
+                alignItems: "center",
+                justifyContent: "center",
+                width: 16,
+                height: 16,
+                borderRadius: "50%",
+                fontSize: 9,
+                fontWeight: "bold",
+                background: tab === k ? T.accent : T.line,
+                color: tab === k ? "#ffffff" : T.sub,
+                fontFamily: "'JetBrains Mono', monospace",
+                transition: "all 0.2s ease"
+              }}>{num}</span>
+              <span>{label}</span>
+            </button>
+          ))}
+        </nav>
+        <div style={S.themeWrap}>
+          <span style={S.themeLabel}>theme</span>
+          <select
+            value={theme}
+            onChange={(e) => setTheme(e.target.value)}
+            style={S.themeSelect}
+          >
+            {Object.entries(THEMES).map(([k, v]) => (
+              <option key={k} value={k}>{v.name}</option>
+            ))}
+          </select>
+        </div>
+      </header>
+
+      <main style={S.main}>
+        {tab === "calibrate" && (
+          <CalibrateTab T={T} S={S} cal={cal} setCal={setCal} />
+        )}
+        {tab === "load" && (
+          <LoadTab
+            T={T} S={S} pattern={pattern} setPattern={setPattern}
+            pdfRef={pdfRef} pageCanvasesRef={pageCanvasesRef}
+            pageVectorsRef={pageVectorsRef} legendRef={legendRef}
+            pdfReady={pdfReady} setPdfReady={setPdfReady}
+            loadingPdf={loadingPdf} setLoadingPdf={setLoadingPdf}
+            onReady={() => setTab("project")}
+          />
+        )}
+        {tab === "project" && (
+          <ProjectTab
+            T={T} S={S} cal={cal} setCal={setCal} pattern={pattern} setPattern={setPattern}
+            pos={pos} setPos={setPos} pdfRef={pdfRef}
+            pageCanvasesRef={pageCanvasesRef} pageVectorsRef={pageVectorsRef}
+            legendRef={legendRef} pdfReady={pdfReady}
+          />
+        )}
+      </main>
+    </div>
+  );
+}
+
+/* ===========================================================================
+   GRID / HOMOGRAPHY HELPERS shared by tabs
+   =========================================================================== */
+// Build design-space rectangle dims in px from calibration.
+// Fixed design-space resolution: design space is an abstract coordinate system
+// at a constant pixels-per-unit. The homography (built from the board corners)
+// maps design space onto the real, keystoned screen — so the REAL-WORLD scale
+// lives in the homography + board dimensions, NOT here. (Earlier this used
+// cal.scaleFactor, which is a screen-derived number and wrongly rescaled the
+// whole pattern — that was the "pattern far too big" bug.)
+const DESIGN_PPU = 60;
+function designDims(cal) {
+  const unitMM = cal.unit === "in" ? MM_PER_IN : 10;
+  const w = cal.boardW / unitMM; // board width in locked units
+  const h = cal.boardH / unitMM;
+  const ppu = DESIGN_PPU;
+  return { wUnits: w, hUnits: h, ppu, wPx: w * ppu, hPx: h * ppu };
+}
+
+// default corners: centered rect within container with margin
+function defaultCorners(W, H, dd) {
+  const aspect = dd.wPx / dd.hPx;
+  let bw = W * 0.8, bh = bw / aspect;
+  if (bh > H * 0.8) { bh = H * 0.8; bw = bh * aspect; }
+  const x0 = (W - bw) / 2, y0 = (H - bh) / 2;
+  return [
+    [x0, y0], [x0 + bw, y0], [x0 + bw, y0 + bh], [x0, y0 + bh],
+  ];
+}
+
+// Draw the calibration grid through homography H onto ctx.
+function drawGrid(ctx, H, dd, opts) {
+  const { color, thickness, opacity } = opts;
+  const majorEvery = opts.majorEvery || 0; // bold every Nth line (0 = off)
+  ctx.save();
+  ctx.globalAlpha = opacity;
+  ctx.strokeStyle = color;
+  const cols = Math.round(dd.wUnits / opts.cell);
+  const rows = Math.round(dd.hUnits / opts.cell);
+  const cw = dd.wPx / cols, ch = dd.hPx / rows;
+  const isMajor = (i) => majorEvery > 0 && i % majorEvery === 0;
+  // vertical lines
+  for (let i = 0; i <= cols; i++) {
+    const x = i * cw;
+    ctx.lineWidth = isMajor(i) ? thickness * 2 : thickness;
+    ctx.beginPath();
+    const [ax, ay] = applyH(H, x, 0);
+    const [bx, by] = applyH(H, x, dd.hPx);
+    ctx.moveTo(ax, ay); ctx.lineTo(bx, by);
+    ctx.stroke();
+  }
+  for (let j = 0; j <= rows; j++) {
+    const y = j * ch;
+    ctx.lineWidth = isMajor(j) ? thickness * 2 : thickness;
+    ctx.beginPath();
+    const [ax, ay] = applyH(H, 0, y);
+    const [bx, by] = applyH(H, dd.wPx, y);
+    ctx.moveTo(ax, ay); ctx.lineTo(bx, by);
+    ctx.stroke();
+  }
+  // bold border
+  ctx.lineWidth = thickness * 2.5;
+  ctx.beginPath();
+  const c = [[0,0],[dd.wPx,0],[dd.wPx,dd.hPx],[0,dd.hPx]];
+  c.forEach((p, i) => {
+    const [px, py] = applyH(H, p[0], p[1]);
+    if (i === 0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
+  });
+  ctx.closePath(); ctx.stroke();
+  ctx.restore();
+}
+
+function drawCornerHandles(ctx, corners, size, active, color) {
+  corners.forEach(([x, y], i) => {
+    ctx.save();
+    ctx.strokeStyle = i === active ? "#e2725b" : color;
+    ctx.lineWidth = i === active ? 3 : 2;
+    ctx.beginPath();
+    ctx.arc(x, y, size, 0, Math.PI * 2);
+    ctx.stroke();
+    // X through centre
+    const r = size * 0.7;
+    ctx.beginPath();
+    ctx.moveTo(x - r, y - r); ctx.lineTo(x + r, y + r);
+    ctx.moveTo(x + r, y - r); ctx.lineTo(x - r, y + r);
+    ctx.stroke();
+    ctx.restore();
+  });
+}
+
+/* ===========================================================================
+   TAB 1 — CALIBRATE
+   =========================================================================== */
+function CalibrateTab({ T, S, cal, setCal }) {
+  const wrapRef = useRef(null);
+  const canvasRef = useRef(null);
+  const [dims, setDims] = useState({ w: 800, h: 600 });
+  const [zoom, setZoom] = useState(1);
+  // cursor assist mode is persisted in cal so it carries into projection.
+  const cursorMode = (cal.cursorMode === "nudge") ? "crosshair" : (cal.cursorMode || "crosshair");
+  const setCursorMode = (m) => setCal((c) => ({ ...c, cursorMode: m }));
+  const [interaction, setInteraction] = useState("drag"); // drag|float
+  const [active, setActive] = useState(0);
+  const [floatPicked, setFloatPicked] = useState(false);
+  const [mouse, setMouse] = useState({ x: 0, y: 0 });
+  const draggingRef = useRef(null);
+  const [projecting, setProjecting] = useState(false);
+
+  const dd = useMemo(() => designDims(cal), [cal]);
+
+  // working corners (local, until saved/edited)
+  const [corners, setCorners] = useState(
+    cal.corners || defaultCorners(dims.w, dims.h, dd)
+  );
+  useEffect(() => {
+    if (!cal.corners) setCorners(defaultCorners(dims.w, dims.h, dd));
+  }, [dims.w, dims.h, dd, cal.corners]);
+
+  // resize observer
+  useEffect(() => {
+    const el = wrapRef.current;
+    if (!el) return;
+    const ro = new ResizeObserver(() => {
+      setDims({ w: el.clientWidth, h: el.clientHeight });
+    });
+    ro.observe(el);
+    setDims({ w: el.clientWidth, h: el.clientHeight });
+    return () => ro.disconnect();
+  }, []);
+
+  const H = useMemo(() => {
+    const src = [[0, 0], [dd.wPx, 0], [dd.wPx, dd.hPx], [0, dd.hPx]];
+    // apply zoom around center
+    const cx = dims.w / 2, cy = dims.h / 2;
+    const zc = corners.map(([x, y]) => [
+      cx + (x - cx) * zoom, cy + (y - cy) * zoom,
+    ]);
+    return computeHomography(src, zc);
+  }, [corners, dd, zoom, dims]);
+
+  // RENDER loop
+  useEffect(() => {
+    const cv = canvasRef.current;
+    if (!cv) return;
+    const dpr = window.devicePixelRatio || 1;
+    cv.width = dims.w * dpr; cv.height = dims.h * dpr;
+    cv.style.width = dims.w + "px"; cv.style.height = dims.h + "px";
+    const ctx = cv.getContext("2d");
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.clearRect(0, 0, dims.w, dims.h);
+    // Background: during projection use the user-chosen background color (toggled
+    // live via the in-projection buttons); otherwise the panel color.
+    const projBg = cal.projBg || "#000000";
+    const bgIsDark = isColorDark(projBg);
+    ctx.fillStyle = projecting ? projBg : T.panel2;
+    ctx.fillRect(0, 0, dims.w, dims.h);
+
+    // Grid uses the SAME color the user picked before projecting, so what they
+    // set up is exactly what they get. On a dark projection background we lift a
+    // too-dark grid color to stay visible.
+    let gridColor = cal.gridColor || T.grid;
+    if (projecting && bgIsDark && isColorDark(gridColor)) gridColor = T.projGrid;
+    drawGrid(ctx, H, dd, {
+      color: gridColor,
+      thickness: cal.gridThickness,
+      opacity: cal.gridOpacity,
+      cell: cal.cell,
+      majorEvery: cal.majorEvery,
+    });
+
+    const zc = displayCorners(corners, zoom, dims);
+    drawCornerHandles(ctx, zc, cal.circleSize, active, T.accent);
+
+    if (!projecting) {
+      // label
+      ctx.fillStyle = T.sub;
+      ctx.font = "12px 'JetBrains Mono', monospace";
+      ctx.fillText(
+        `${dd.wUnits.toFixed(1)} × ${dd.hUnits.toFixed(1)} ${cal.unit} · cell ${cal.cell}${cal.unit}`,
+        16, dims.h - 16
+      );
+    }
+
+    // Cursor assist — now active in BOTH calibration and projection, so the modes
+    // the user chooses are usable while projecting onto the mat.
+    if (cursorMode === "loupe") drawLoupe(ctx, cv, mouse, dpr, dims);
+    if (cursorMode === "crosshair") {
+      // thin full-canvas crosshair for lining up
+      ctx.strokeStyle = projecting ? (bgIsDark ? "#ff3b30" : "#d00000") : T.accent;
+      ctx.lineWidth = 0.5; ctx.globalAlpha = projecting ? 0.8 : 0.6;
+      ctx.beginPath();
+      ctx.moveTo(mouse.x, 0); ctx.lineTo(mouse.x, dims.h);
+      ctx.moveTo(0, mouse.y); ctx.lineTo(dims.w, mouse.y);
+      ctx.stroke(); ctx.globalAlpha = 1;
+    }
+    // During projection always mark the cursor with a small reticle (the system
+    // cursor is usually invisible against the projection).
+    if (projecting && cursorMode !== "crosshair") {
+      const cur = bgIsDark ? "#ff3b30" : "#d00000";
+      ctx.strokeStyle = cur; ctx.lineWidth = 1; ctx.globalAlpha = 0.9;
+      ctx.beginPath();
+      ctx.moveTo(mouse.x - 14, mouse.y); ctx.lineTo(mouse.x + 14, mouse.y);
+      ctx.moveTo(mouse.x, mouse.y - 14); ctx.lineTo(mouse.x, mouse.y + 14);
+      ctx.stroke();
+      ctx.beginPath(); ctx.arc(mouse.x, mouse.y, 4, 0, 7); ctx.stroke();
+      ctx.globalAlpha = 1;
+    }
+  }, [H, dd, dims, corners, active, cal, projecting, mouse, cursorMode, zoom, T]);
+
+  function displayCorners(c, z, d) {
+    const cx = d.w / 2, cy = d.h / 2;
+    return c.map(([x, y]) => [cx + (x - cx) * z, cy + (y - cy) * z]);
+  }
+  function toLocal(dx, dy, z, d) {
+    const cx = d.w / 2, cy = d.h / 2;
+    return [cx + (dx - cx) / z, cy + (dy - cy) / z];
+  }
+
+  function getMouse(e) {
+    const r = canvasRef.current.getBoundingClientRect();
+    return { x: e.clientX - r.left, y: e.clientY - r.top };
+  }
+
+  function hitCorner(m) {
+    const zc = displayCorners(corners, zoom, dims);
+    for (let i = 0; i < 4; i++) {
+      const dx = zc[i][0] - m.x, dy = zc[i][1] - m.y;
+      if (Math.hypot(dx, dy) < cal.circleSize + 8) return i;
+    }
+    return -1;
+  }
+
+  function moveCorner(i, mx, my) {
+    const [lx, ly] = toLocal(mx, my, zoom, dims);
+    let nx = lx, ny = ly;
+    if (cursorMode === "snap") {
+      // snap to grid intersection in screen space (approx via design grid)
+      const cols = Math.round(dd.wUnits / cal.cell);
+      const rows = Math.round(dd.hUnits / cal.cell);
+      // find nearest design grid node mapped to screen
+      let best = null, bd = 1e9;
+      for (let c = 0; c <= cols; c++)
+        for (let rr = 0; rr <= rows; rr++) {
+          const [px, py] = applyH(H, (c / cols) * dd.wPx, (rr / rows) * dd.hPx);
+          const d = Math.hypot(px - mx, py - my);
+          if (d < bd) { bd = d; best = [px, py]; }
+        }
+      if (best) {
+        const [blx, bly] = toLocal(best[0], best[1], zoom, dims);
+        nx = blx; ny = bly;
+      }
+    }
+    setCorners((cs) => {
+      const next = cs.map((c, k) => (k === i ? [nx, ny] : c));
+      return isConvex(next) ? next : cs;
+    });
+  }
+
+  function onDown(e) {
+    const m = getMouse(e);
+    if (projecting) { draggingRef.current = hitCorner(m); return; }
+    if (interaction === "float") {
+      if (floatPicked) { setFloatPicked(false); }
+      return;
+    }
+    const i = hitCorner(m);
+    if (i >= 0) { draggingRef.current = i; setActive(i); }
+  }
+  function onMove(e) {
+    const m = getMouse(e);
+    setMouse(m);
+    if (interaction === "float" && floatPicked) {
+      moveCorner(active, m.x, m.y);
+      return;
+    }
+    if (draggingRef.current != null && draggingRef.current >= 0) {
+      moveCorner(draggingRef.current, m.x, m.y);
+    }
+  }
+  function onUp() { draggingRef.current = null; }
+  function onDouble(e) {
+    if (interaction !== "float" || projecting) return;
+    const m = getMouse(e);
+    const i = hitCorner(m);
+    if (i >= 0) { setActive(i); setFloatPicked(true); }
+    else if (floatPicked) setFloatPicked(false);
+  }
+
+  // keyboard nudge
+  useEffect(() => {
+    function onKey(e) {
+      if (!e.key.startsWith("Arrow")) return;
+      const step = e.shiftKey ? 10 : 1;
+      const map = { ArrowUp: [0, -step], ArrowDown: [0, step], ArrowLeft: [-step, 0], ArrowRight: [step, 0] };
+      const d = map[e.key];
+      if (!d) return;
+      e.preventDefault();
+      setCorners((cs) => {
+        const next = cs.map((c, k) => (k === active ? [c[0] + d[0], c[1] + d[1]] : c));
+        return isConvex(next) ? next : cs;
+      });
+    }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [active]);
+
+  function applySize() {
+    // commit board size settings only (no corners/scale)
+    setCal((c) => ({ ...c }));
+  }
+  function startProjecting() {
+    setProjecting(true);
+    const el = wrapRef.current;
+    if (el && el.requestFullscreen) el.requestFullscreen().catch(() => {});
+  }
+  function saveCalibration() {
+    setCal((c) => ({ ...c, corners: [...corners], saved: true }));
+    setProjecting(false);
+    if (document.fullscreenElement) document.exitFullscreen().catch(() => {});
+  }
+  function exitProjecting() {
+    setProjecting(false);
+    if (document.fullscreenElement) document.exitFullscreen().catch(() => {});
+  }
+  function resetCalibration() {
+    if (!window.confirm("Reset calibration entirely? This clears corners and scale.")) return;
+    setCal((c) => ({ ...c, corners: null, scaleFactor: null, saved: false }));
+    setCorners(defaultCorners(dims.w, dims.h, dd));
+  }
+
+  function setUnit(u) {
+    setCal((c) => ({ ...c, unit: u, cell: u === "in" ? 1 : 1 }));
+  }
+  function setPreset(p) {
+    if (p === "Custom") { setCal((c) => ({ ...c, boardPreset: p })); return; }
+    const s = MAT_SIZES[p] || MAT_SIZES["18 × 24 in"];
+    setCal((c) => {
+      const isLandscape = c.orientation === "landscape";
+      const w = isLandscape ? Math.max(s.w, s.h) : Math.min(s.w, s.h);
+      const h = isLandscape ? Math.min(s.w, s.h) : Math.max(s.w, s.h);
+      return { ...c, boardPreset: p, boardW: w, boardH: h };
+    });
+  }
+
+  const subdivisions = cal.unit === "in"
+    ? [0.25, 0.5, 1, 2, 3, 4, 5, 6]
+    : [0.25, 0.5, 1, 2, 3, 4, 5, 6];
+
+  return (
+    <div style={S.tabLayout}>
+      {!projecting && (
+        <aside style={S.sidebar}>
+          <Section S={S} title="Cutting Mat Setup">
+            <Field S={S} label="Cutting mat size">
+              <select style={S.input} value={cal.boardPreset} onChange={(e) => setPreset(e.target.value)}>
+                {[...Object.keys(MAT_SIZES), "Custom"].map((p) => <option key={p}>{p}</option>)}
+              </select>
+            </Field>
+            <div style={S.row2}>
+              <Field S={S} label={`Width (${cal.unit})`}>
+                <input style={S.input} type="number" step="0.1"
+                  value={+(cal.boardW / (cal.unit === "in" ? MM_PER_IN : 10)).toFixed(2)}
+                  onChange={(e) => {
+                    const val = +e.target.value * (cal.unit === "in" ? MM_PER_IN : 10);
+                    setCal((c) => {
+                      const nextW = val;
+                      const nextH = c.boardH;
+                      const nextOrient = nextW >= nextH ? "landscape" : "portrait";
+                      return {
+                        ...c,
+                        boardW: nextW,
+                        boardPreset: "Custom",
+                        orientation: nextOrient
+                      };
+                    });
+                  }} />
+              </Field>
+              <Field S={S} label={`Height (${cal.unit})`}>
+                <input style={S.input} type="number" step="0.1"
+                  value={+(cal.boardH / (cal.unit === "in" ? MM_PER_IN : 10)).toFixed(2)}
+                  onChange={(e) => {
+                    const val = +e.target.value * (cal.unit === "in" ? MM_PER_IN : 10);
+                    setCal((c) => {
+                      const nextW = c.boardW;
+                      const nextH = val;
+                      const nextOrient = nextW >= nextH ? "landscape" : "portrait";
+                      return {
+                        ...c,
+                        boardH: nextH,
+                        boardPreset: "Custom",
+                        orientation: nextOrient
+                      };
+                    });
+                  }} />
+              </Field>
+            </div>
+            <Field S={S} label="Unit (locks grid unit)">
+              <div style={S.toggleRow}>
+                {["cm", "in"].map((u) => (
+                  <button key={u} onClick={() => setUnit(u)}
+                    style={{ ...S.toggleBtn, ...(cal.unit === u ? S.toggleOn(T) : {}) }}>
+                    {u === "cm" ? "Metric (cm)" : "Imperial (in)"}
+                  </button>
+                ))}
+              </div>
+            </Field>
+            <Field S={S} label="Orientation">
+              <div style={S.toggleRow}>
+                {["portrait", "landscape"].map((o) => (
+                  <button key={o} onClick={() => {
+                    setCal((c) => {
+                      if (c.orientation === o) return c;
+                      return {
+                        ...c,
+                        orientation: o,
+                        boardW: c.boardH,
+                        boardH: c.boardW,
+                      };
+                    });
+                  }}
+                    style={{ ...S.toggleBtn, ...(cal.orientation === o ? S.toggleOn(T) : {}) }}>{o}</button>
+                ))}
+              </div>
+            </Field>
+            <Field S={S} label={`Subdivision / cell (${cal.unit})`}>
+              <select style={S.input} value={cal.cell}
+                onChange={(e) => setCal((c) => ({ ...c, cell: +e.target.value }))}>
+                {subdivisions.map((s) => <option key={s} value={s}>{s}</option>)}
+              </select>
+            </Field>
+            <Field S={S} label="Bold line every">
+              <select style={S.input} value={cal.majorEvery || 0}
+                onChange={(e) => setCal((c) => ({ ...c, majorEvery: +e.target.value }))}>
+                <option value={0}>Off</option>
+                <option value={2}>2 squares</option>
+                <option value={4}>4 squares</option>
+                <option value={5}>5 squares</option>
+                <option value={10}>10 squares</option>
+              </select>
+            </Field>
+            <button style={S.btn(T)} onClick={applySize}>Apply</button>
+          </Section>
+
+          <Section S={S} title={<span>Grid customization <HelpDot T={T} text="Whatever you set here — grid color, thickness, and opacity — is exactly what shows when you project. Background color is chosen on the projection screen itself (top-right buttons)." /></span>}>
+            <Slider S={S} label="Gridline thickness" min={0.2} max={5} step={0.1}
+              value={cal.gridThickness} onChange={(v) => setCal((c) => ({ ...c, gridThickness: v }))} />
+            <Slider S={S} label="Grid opacity" min={0.1} max={1} step={0.05}
+              value={cal.gridOpacity} onChange={(v) => setCal((c) => ({ ...c, gridOpacity: v }))} />
+            <Field S={S} label="Grid color">
+              <input type="color" style={S.color} value={cal.gridColor || T.grid}
+                onChange={(e) => setCal((c) => ({ ...c, gridColor: e.target.value }))} />
+            </Field>
+          </Section>
+
+          <Section S={S} title={<span>Cursor Assist <HelpDot T={T} text={(interaction === "float"
+            ? "Double-click a corner to pick up, single-click to lock."
+            : "Press & hold a handle to drag.") +
+            " The chosen assist stays active while projecting."} /></span>}>
+            <div style={S.chipWrap}>
+              {["crosshair", "loupe", "snap"].map((m) => (
+                <button key={m} onClick={() => setCursorMode(m)}
+                  style={{ ...S.chip, ...(cursorMode === m ? S.chipOn(T) : {}) }}>{m}</button>
+              ))}
+            </div>
+            <Field S={S} label="Corner interaction">
+              <div style={S.toggleRow}>
+                {["drag", "float"].map((m) => (
+                  <button key={m} onClick={() => { setInteraction(m); setFloatPicked(false); }}
+                    style={{ ...S.toggleBtn, ...(interaction === m ? S.toggleOn(T) : {}) }}>{m}</button>
+                ))}
+              </div>
+            </Field>
+            <Slider S={S} label="Corner circle size" min={6} max={40} step={1}
+              value={cal.circleSize} onChange={(v) => setCal((c) => ({ ...c, circleSize: v }))} />
+          </Section>
+
+          <Section S={S} title="Calibration">
+            <button style={S.btnAccent(T)} onClick={startProjecting}>
+              Calibrate: Start Projecting
+            </button>
+            <button style={S.btnDanger(T)} onClick={resetCalibration}>Reset Calibration</button>
+            <div style={S.hint}>
+              {cal.saved ? "✓ Calibration saved & persisted." : "Not yet saved."}
+            </div>
+          </Section>
+        </aside>
+      )}
+
+      <div ref={wrapRef} style={{ ...S.stage, background: projecting ? (cal.projBg || "#000") : T.panel2 }}>
+        {!projecting && (
+          <div style={S.zoomWrap}>
+            <span style={S.zoomLabel}>zoom out</span>
+            <input type="range" min={0.3} max={1} step={0.01} value={zoom}
+              onChange={(e) => setZoom(+e.target.value)} style={S.zoomSlider} />
+          </div>
+        )}
+        <canvas
+          ref={canvasRef}
+          style={{ display: "block", cursor: cursorMode === "crosshair" ? "none" : "default" }}
+          onMouseDown={onDown} onMouseMove={onMove} onMouseUp={onUp}
+          onMouseLeave={onUp} onDoubleClick={onDouble}
+        />
+        {projecting && (
+          <div style={S.projControls}>
+            <button style={S.btnAccent(T)} onClick={saveCalibration}>Save Calibration</button>
+            <button style={S.xBtn(T)} onClick={exitProjecting}>✕</button>
+            {/* Background-color toggles for the projected screen — icon swatches.
+                Lets the user flip the projection background live without leaving
+                projection. Kept on the same control panel, to the right. */}
+            <span style={{ width: 1, height: 22, background: "rgba(128,128,128,0.4)", margin: "0 2px" }} />
+            {[
+              { c: "#000000", title: "Black background" },
+              { c: "#ffffff", title: "White background" },
+              { c: "#0b2a4a", title: "Blueprint background" },
+              { c: "#10331f", title: "Dark green background" },
+            ].map(({ c, title }) => (
+              <button key={c} title={title}
+                onClick={() => setCal((cc) => ({ ...cc, projBg: c }))}
+                style={{
+                  width: 24, height: 24, borderRadius: 6, cursor: "pointer", padding: 0,
+                  background: c,
+                  border: (cal.projBg || "#000000") === c
+                    ? `2px solid ${T.accent}` : `1px solid rgba(128,128,128,0.5)`,
+                  boxShadow: (cal.projBg || "#000000") === c ? `0 0 0 2px ${T.accent}55` : "none",
+                }} />
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function drawLoupe(ctx, cv, mouse, dpr, dims) {
+  const size = 120, zoom = 4;
+  const lx = mouse.x + 24, ly = mouse.y + 24;
+  ctx.save();
+  ctx.beginPath();
+  ctx.rect(lx, ly, size, size);
+  ctx.clip();
+  ctx.drawImage(
+    cv,
+    (mouse.x - size / (2 * zoom)) * dpr, (mouse.y - size / (2 * zoom)) * dpr,
+    (size / zoom) * dpr, (size / zoom) * dpr,
+    lx, ly, size, size
+  );
+  ctx.restore();
+  ctx.strokeStyle = "#e2725b"; ctx.lineWidth = 2;
+  ctx.strokeRect(lx, ly, size, size);
+  ctx.beginPath();
+  ctx.moveTo(lx + size / 2, ly); ctx.lineTo(lx + size / 2, ly + size);
+  ctx.moveTo(lx, ly + size / 2); ctx.lineTo(lx + size, ly + size / 2);
+  ctx.globalAlpha = 0.5; ctx.stroke(); ctx.globalAlpha = 1;
+}
+
+/* ===========================================================================
+   TAB 2 — LOAD PATTERN
+   =========================================================================== */
+function LoadTab({
+  T, S, pattern, setPattern, pdfRef, pageCanvasesRef,
+  pageVectorsRef, legendRef,
+  pdfReady, setPdfReady, loadingPdf, setLoadingPdf, onReady,
+}) {
+  const fileInputRef = useRef(null);
+  const [previewOpen, setPreviewOpen] = useState(true);
+  const [dragSlot, setDragSlot] = useState(null); // index in slots being dragged
+  const [swapMode, setSwapMode] = useState(false);
+  const [swapFirst, setSwapFirst] = useState(null);
+  const [previewZoom, setPreviewZoom] = useState(1); // shrink assembled preview without changing rows/cols
+  const thumbs = pattern.thumbs || []; // persisted in pattern state
+
+  async function handleFile(e) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setLoadingPdf(true);
+    try {
+      const pdfjs = await loadPdfJs();
+      const buf = await file.arrayBuffer();
+      const doc = await pdfjs.getDocument({ data: buf }).promise;
+      pdfRef.current = doc;
+      const n = doc.numPages;
+      const canvases = [];
+      const tdata = [];
+      const vectors = []; // per-page extracted strokes (page-coord, at render scale)
+      for (let i = 1; i <= n; i++) {
+        const page = await doc.getPage(i);
+        const vp = page.getViewport({ scale: 1 });
+        const scale = Math.min(900 / vp.width, 1.5);
+        const v2 = page.getViewport({ scale });
+        const cv = document.createElement("canvas");
+        cv.width = v2.width; cv.height = v2.height;
+        const ctx = cv.getContext("2d");
+        ctx.fillStyle = "#fff"; ctx.fillRect(0, 0, cv.width, cv.height);
+        await page.render({ canvasContext: ctx, viewport: v2 }).promise;
+        canvases.push(cv);
+        // extract vectors at the SAME scale so coords align with the canvas
+        try {
+          vectors.push(await extractPageVectors(page, scale, pattern.cropMarginIn || 0));
+        } catch (err) {
+          vectors.push(null);
+        }
+        // thumbnail
+        const tc = document.createElement("canvas");
+        const ts = 140 / cv.width;
+        tc.width = 140; tc.height = cv.height * ts;
+        tc.getContext("2d").drawImage(cv, 0, 0, tc.width, tc.height);
+        tdata.push(tc.toDataURL("image/png"));
+      }
+      pageCanvasesRef.current = canvases;
+      pageVectorsRef.current = vectors;
+
+      // ---- legend detection + size building ----
+      const legend = detectLegend(vectors);
+      legendRef.current = legend;
+      const sizes = buildSizesFromLegend(legend);
+
+      // slots: one page per slot, in page order
+      const slots = [];
+      for (let i = 0; i < n; i++) slots.push({ type: "page", page: i });
+      setPattern((p) => ({
+        ...p, loaded: true, numPages: n, excluded: [],
+        gridCols: Math.max(1, Math.ceil(Math.sqrt(n))),
+        slots, assembled: true,
+        sizes, selectedSize: "all", selectMode: "solo",
+        legendFound: legend.length > 0, legendPageIdx: null,
+        thumbs: tdata, // persist so previews survive tab switches
+      }));
+      setPdfReady(true);
+      setPreviewOpen(true);
+    } catch (err) {
+      alert("Failed to load PDF: " + err.message);
+    } finally {
+      setLoadingPdf(false);
+    }
+  }
+
+  function unload() {
+    pdfRef.current = null;
+    pageCanvasesRef.current = [];
+    pageVectorsRef.current = [];
+    legendRef.current = [];
+    setPdfReady(false);
+    setSwapMode(false); setSwapFirst(null);
+    setPattern((p) => ({
+      ...p, loaded: false, numPages: 0, excluded: [], slots: [], thumbs: [],
+      sizes: [], assembled: false, gridCols: 6, legendFound: false,
+    }));
+    if (fileInputRef.current) fileInputRef.current.value = "";
+  }
+
+  function toggleExclude(i) {
+    setPattern((p) => {
+      const isExcl = p.excluded.includes(i);
+      const excluded = isExcl ? p.excluded.filter((x) => x !== i) : [...p.excluded, i];
+      let slots = p.slots.slice();
+      if (isExcl) {
+        // re-include: append back as a page slot if not present
+        if (!slots.some((s) => s.type === "page" && s.page === i))
+          slots.push({ type: "page", page: i });
+      } else {
+        // exclude: remove from slots entirely
+        slots = slots.filter((s) => !(s.type === "page" && s.page === i));
+      }
+      return { ...p, excluded, slots };
+    });
+  }
+
+  function addCol() { setPattern((p) => ({ ...p, gridCols: p.gridCols + 1 })); }
+  function delCol() { setPattern((p) => ({ ...p, gridCols: Math.max(1, p.gridCols - 1) })); }
+  function addRow() {
+    // Append one grid-row worth of blank slots.
+    setPattern((p) => ({ ...p, slots: [...p.slots, ...Array.from({ length: p.gridCols }, () => ({ type: "blank" }))] }));
+  }
+  function delRow() {
+    // Remove up to gridCols trailing BLANK slots (never deletes real pages).
+    setPattern((p) => {
+      const slots = p.slots.slice();
+      let removed = 0;
+      while (removed < p.gridCols && slots.length && slots[slots.length - 1].type === "blank") {
+        slots.pop(); removed++;
+      }
+      return { ...p, slots };
+    });
+  }
+  function addBlank() {
+    setPattern((p) => ({ ...p, slots: [...p.slots, { type: "blank" }] }));
+  }
+
+  // Drag reflow: move slot from `from` to `to`, pushing the rest along.
+  function reflow(from, to) {
+    setPattern((p) => {
+      if (from == null || to == null || from === to) return p;
+      const slots = p.slots.slice();
+      const [moved] = slots.splice(from, 1);
+      slots.splice(to, 0, moved);
+      return { ...p, slots };
+    });
+  }
+
+  // Swap two slot indices.
+  function swapSlots(a, b) {
+    setPattern((p) => {
+      if (a == null || b == null || a === b) return p;
+      const slots = p.slots.slice();
+      [slots[a], slots[b]] = [slots[b], slots[a]];
+      return { ...p, slots };
+    });
+  }
+
+  function onSlotClick(idx) {
+    if (!swapMode) return;
+    if (swapFirst == null) { setSwapFirst(idx); return; }
+    swapSlots(swapFirst, idx);
+    setSwapFirst(null); setSwapMode(false);
+  }
+  function removeSlot(idx) {
+    setPattern((p) => {
+      const s = p.slots[idx];
+      const slots = p.slots.filter((_, k) => k !== idx);
+      // if removing a page slot, also mark it excluded so the tray reflects it
+      let excluded = p.excluded;
+      if (s && s.type === "page") excluded = [...new Set([...p.excluded, s.page])];
+      return { ...p, slots, excluded };
+    });
+  }
+
+  // Re-run legend detection on the already-extracted vectors. If forcedIdx is a
+  // number, detect from ONLY that page (the user's chosen swatch page).
+  function detectSizes(forcedIdx = null) {
+    const legend = detectLegend(pageVectorsRef.current || [], forcedIdx);
+    legendRef.current = legend;
+    const sizes = buildSizesFromLegend(legend);
+    setPattern((p) => ({
+      ...p, sizes, selectedSize: "all",
+      legendFound: legend.length > 0, legendPageIdx: forcedIdx,
+    }));
+  }
+
+  // (Crop-margin re-extraction now lives in the Project tab.)
+
+  function assemble() {
+    setPattern((p) => ({ ...p, assembled: true }));
+    setPreviewOpen(false);
+  }
+
+  const placedPages = (pattern.slots || []).filter((s) => s.type === "page").map((s) => s.page);
+  const unplaced = Array.from({ length: pattern.numPages }, (_, i) => i)
+    .filter((i) => !placedPages.includes(i) && !(pattern.excluded || []).includes(i));
+
+  return (
+    <div style={S.tabLayout}>
+      <aside style={S.sidebar}>
+        <Section S={S} title="Load PDF">
+          <input ref={fileInputRef} type="file" accept="application/pdf"
+            onChange={handleFile} style={S.fileInput} />
+          {pattern.loaded && (
+            <button style={S.btnDanger(T)} onClick={unload}>Unload / Remove PDF</button>
+          )}
+          {loadingPdf && <div style={S.hint}>Rendering pages…</div>}
+          <Field S={S} label={<span>Tile size (fallback only) <HelpDot T={T} text="True scale is read from the PDF's own page dimensions automatically. This dropdown is only used as a fallback if a PDF doesn't report a usable size." /></span>}>
+            <select style={S.input} value={pattern.pageSize}
+              onChange={(e) => setPattern((p) => ({ ...p, pageSize: e.target.value }))}>
+              {Object.keys(PAGE_SIZES).map((k) => <option key={k}>{k}</option>)}
+            </select>
+          </Field>
+        </Section>
+
+        {pattern.loaded && (
+          <>
+            <Section S={S} title={<span>Sizes <HelpDot T={T} text="No size legend found automatically? Pick the page that shows the size swatches (the column of dashed sample lines with labels) below, then the dashes are traced across every page." /></span>}>
+              {pattern.legendFound && (
+                <div style={{ ...S.hint, color: T.accent, marginBottom: 8 }}>
+                  ✓ {pattern.legendPageIdx != null
+                    ? `Sizes read from page ${pattern.legendPageIdx + 1}`
+                    : "Legend auto-detected"} — {pattern.sizes.length} sizes mapped.
+                </div>
+              )}
+              <Field S={S} label={<span>Size-swatch page <HelpDot T={T} text="Auto-detect usually finds the legend on its own. If sizes look wrong or some are missing, choose the page that contains the swatch key — often page 1." /></span>}>
+                <select style={S.input}
+                  value={pattern.legendPageIdx == null ? "auto" : String(pattern.legendPageIdx)}
+                  onChange={(e) => {
+                    const v = e.target.value;
+                    detectSizes(v === "auto" ? null : Number(v));
+                  }}>
+                  <option value="auto">Auto-detect</option>
+                  {Array.from({ length: pattern.numPages }, (_, i) => (
+                    <option key={i} value={i}>Page {i + 1}</option>
+                  ))}
+                </select>
+              </Field>
+
+              {pattern.sizes.length > 0 && (
+                <>
+                  <Field S={S} label="Active size">
+                    <select style={S.input} value={pattern.selectedSize}
+                      onChange={(e) => setPattern((p) => ({ ...p, selectedSize: e.target.value }))}>
+                      <option value="all">All sizes</option>
+                      {pattern.sizes.map((s) => <option key={s.id} value={s.id}>{s.label}</option>)}
+                    </select>
+                  </Field>
+                  <Field S={S} label="Other sizes when one is selected">
+                    <div style={S.toggleRow}>
+                      {[["solo", "Hide"], ["dim", "Dim"]].map(([m, lbl]) => (
+                        <button key={m}
+                          onClick={() => setPattern((p) => ({ ...p, selectMode: m }))}
+                          style={{ ...S.toggleBtn, ...((pattern.selectMode || "solo") === m ? S.toggleOn(T) : {}) }}>
+                          {lbl}
+                        </button>
+                      ))}
+                    </div>
+                  </Field>
+                  {pattern.sizes.map((s) => {
+                    const active = String(pattern.selectedSize) === String(s.id);
+                    return (
+                      <div key={s.id} style={{
+                        ...S.sizeRow, flexWrap: "wrap",
+                        opacity: s.visible ? (pattern.selectedSize === "all" || active ? 1 : 0.5) : 0.3,
+                      }}>
+                        <input type="checkbox" checked={s.visible}
+                          title="Show/hide this size"
+                          onChange={(e) => updateSize(setPattern, s.id, { visible: e.target.checked })}
+                          style={{ cursor: "pointer", flexShrink: 0 }} />
+                        <DashSwatch sig={s.sig} color={s.color} />
+                        <input style={S.sizeLabel} value={s.label}
+                          onChange={(e) => updateSize(setPattern, s.id, { label: e.target.value })} />
+                        <input type="color" value={s.color} style={S.colorSm}
+                          onChange={(e) => updateSize(setPattern, s.id, { color: e.target.value })} />
+                        <input type="range" min={0.5} max={5} step={0.1} value={s.thickness || 1.4}
+                          title="Line thickness"
+                          onChange={(e) => updateSize(setPattern, s.id, { thickness: +e.target.value })}
+                          style={{ width: "100%", accentColor: s.color }} />
+                      </div>
+                    );
+                  })}
+                </>
+              )}
+            </Section>
+
+            <Section S={S} title="Confirm">
+              <button style={S.btn(T)} onClick={assemble}>Assemble Pattern</button>
+              {pattern.assembled && (
+                <button style={S.btnAccent(T)} onClick={onReady}>Ready to Project →</button>
+              )}
+            </Section>
+          </>
+        )}
+      </aside>
+
+      <div style={{ ...S.stage, padding: 20, overflow: "auto", display: "block" }}>
+        {!pattern.loaded && (
+          <div style={S.empty}>
+            <div style={{ fontSize: 48, opacity: 0.3 }}>⊞</div>
+            <p>Load a PDF sewing pattern to begin assembly.</p>
+          </div>
+        )}
+
+        {pattern.loaded && (
+          <>
+            <div style={S.previewBox}>
+              {/* Header: title on the left, layout controls on the right */}
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10, flexWrap: "wrap", gap: 8 }}>
+                <div style={{ ...S.trayTitle, marginBottom: 0 }}>
+                  Assembly — {(pattern.slots || []).length} tiles · {pattern.gridCols} cols
+                  {swapMode && <span style={{ color: T.accent }}> · pick two tiles to swap</span>}
+                </div>
+                <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                  <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 10, color: T.sub }}>cols</span>
+                  <button style={S.iconBtn(T)} onClick={delCol} title="Remove column">−</button>
+                  <button style={S.iconBtn(T)} onClick={addCol} title="Add column">+</button>
+                  <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 10, color: T.sub, marginLeft: 4 }}>rows</span>
+                  <button style={S.iconBtn(T)} onClick={delRow} title="Remove a row of blanks">−</button>
+                  <button style={S.iconBtn(T)} onClick={addRow} title="Add a row of blanks">+</button>
+                  <button
+                    style={{ ...S.iconBtn(T), ...(swapMode ? S.toggleOn(T) : {}), width: "auto", padding: "0 8px" }}
+                    onClick={() => { setSwapMode((v) => !v); setSwapFirst(null); }}
+                    title="Swap two tiles">⇄</button>
+                  <span style={{ width: 1, height: 18, background: T.line, margin: "0 2px" }} />
+                  <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 10, color: T.sub }}>zoom</span>
+                  <input type="range" min={0.4} max={1} step={0.05} value={previewZoom}
+                    onChange={(e) => setPreviewZoom(+e.target.value)}
+                    style={{ width: 90, accentColor: T.accent }}
+                    title="Shrink the preview without changing rows/columns" />
+                </div>
+              </div>
+              <div style={{
+                display: "grid",
+                gridTemplateColumns: `repeat(${pattern.gridCols}, 1fr)`,
+                gap: 2, background: T.line, padding: 2, borderRadius: 6,
+                width: `${previewZoom * 100}%`, transformOrigin: "top left",
+              }}>
+                {(pattern.slots || []).map((slot, idx) => {
+                  const isBlank = slot.type === "blank";
+                  const pi = isBlank ? null : slot.page;
+                  const isSwapPick = swapFirst === idx;
+                  return (
+                    <div key={idx}
+                      draggable={!swapMode}
+                      onDragStart={() => setDragSlot(idx)}
+                      onDragOver={(e) => e.preventDefault()}
+                      onDrop={() => { reflow(dragSlot, idx); setDragSlot(null); }}
+                      onClick={() => onSlotClick(idx)}
+                      style={{
+                        ...S.cell,
+                        background: isBlank ? T.panel2 : "#fff",
+                        cursor: swapMode ? "pointer" : "grab",
+                        outline: isSwapPick ? `3px solid ${T.accent}` : "none",
+                        border: isBlank ? `1px dashed ${T.sub}` : "none",
+                        position: "relative",
+                      }}
+                      title={swapMode ? "Click to swap" : "Drag to reorder"}>
+                      {pi != null && thumbs[pi]
+                        ? <img src={thumbs[pi]} alt="" style={S.cellImg} />
+                        : <span style={S.cellEmpty}>{isBlank ? "blank" : ""}</span>}
+                      <span style={S.slotIdx}>{pi != null ? pi + 1 : "▦"}</span>
+                      {/* checkbox top-right: unchecking sends a page to Excluded;
+                          blanks just get removed (no excluded concept for blanks) */}
+                      {!swapMode && (
+                        <input type="checkbox" checked
+                          onChange={(e) => {
+                            e.stopPropagation();
+                            if (isBlank) removeSlot(idx);
+                            else toggleExclude(pi);
+                          }}
+                          onClick={(e) => e.stopPropagation()}
+                          style={S.slotCheck}
+                          title={isBlank ? "Remove blank" : "Uncheck to exclude this page"} />
+                      )}
+                    </div>
+                  );
+                })}
+                {/* Inline "add blank page" tile: an empty box with a plus sign. */}
+                {!swapMode && (
+                  <div onClick={addBlank}
+                    style={{
+                      ...S.cell, cursor: "pointer",
+                      background: "transparent",
+                      border: `2px dashed ${T.sub}`,
+                      color: T.sub, fontSize: 28, fontWeight: 300,
+                    }}
+                    title="Add a blank page">+</div>
+                )}
+              </div>
+            </div>
+
+            {/* Excluded pages — unchecked pages live here; recheck to re-add */}
+            {(pattern.excluded || []).length > 0 && (
+              <div style={{ ...S.previewBox, marginTop: 14 }}>
+                <div style={S.trayTitle}>
+                  Excluded pages — check to add back to the layout (at the end)
+                </div>
+                <div style={S.trayPages}>
+                  {(pattern.excluded || []).slice().sort((a, b) => a - b).map((i) => (
+                    <div key={i} style={{ ...S.trayPage, opacity: 0.85 }}
+                      title={`Page ${i + 1} — check to re-add`}>
+                      {thumbs[i]
+                        ? <img src={thumbs[i]} alt={`page ${i + 1}`} style={S.trayImg} />
+                        : <span style={S.cellEmpty}>{i + 1}</span>}
+                      <span style={S.pageNum}>{i + 1}</span>
+                      <input type="checkbox" checked={false}
+                        onChange={() => toggleExclude(i)}
+                        style={S.slotCheck} title="Re-add to layout" />
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function updateSize(setPattern, id, patch) {
+  setPattern((p) => ({ ...p, sizes: p.sizes.map((s) => (s.id === id ? { ...s, ...patch } : s)) }));
+}
+
+function DashSwatch({ sig, color }) {
+  const ref = useRef(null);
+  useEffect(() => {
+    const cv = ref.current; if (!cv) return;
+    const ctx = cv.getContext("2d");
+    ctx.clearRect(0, 0, cv.width, cv.height);
+    ctx.strokeStyle = color; ctx.lineWidth = 2;
+    ctx.setLineDash(dashToScreenPattern(sig));
+    ctx.beginPath(); ctx.moveTo(2, 7); ctx.lineTo(34, 7); ctx.stroke();
+  }, [sig, color]);
+  return <canvas ref={ref} width={36} height={14} style={{ borderRadius: 3, flexShrink: 0 }} />;
+}
+
+/* ===========================================================================
+   TAB 3 — PROJECT
+   =========================================================================== */
+function ProjectTab({
+  T, S, cal, setCal, pattern, setPattern, pos, setPos, pdfRef,
+  pageCanvasesRef, pageVectorsRef, legendRef, pdfReady,
+}) {
+  const wrapRef = useRef(null);
+  const canvasRef = useRef(null);
+  const [dims, setDims] = useState({ w: 800, h: 600 });
+  const [projecting, setProjecting] = useState(false);
+  const dragRef = useRef(null);
+  const [scaleTool, setScaleTool] = useState({ active: false, pts: [] });
+  const [projectZoom, setProjectZoom] = useState(1); // shrinks the non-projecting preview only
+  const [reExtracting, setReExtracting] = useState(false);
+  const [showGridInProj, setShowGridInProj] = useState(true);
+
+  const dd = useMemo(() => designDims(cal), [cal]);
+
+  // Re-extract every page's vectors with a new crop margin (inches), reusing the
+  // already-loaded PDF (only re-parses operator lists). Re-detects sizes from the
+  // user's chosen legend page and re-assembles so the projected tiles update live.
+  async function reExtractVectors(marginIn) {
+    const doc = pdfRef && pdfRef.current;
+    if (!doc) return;
+    setReExtracting(true);
+    try {
+      const vectors = [];
+      for (let i = 1; i <= doc.numPages; i++) {
+        const page = await doc.getPage(i);
+        const vp = page.getViewport({ scale: 1 });
+        const scale = Math.min(900 / vp.width, 1.5);
+        try { vectors.push(await extractPageVectors(page, scale, marginIn)); }
+        catch { vectors.push(null); }
+      }
+      pageVectorsRef.current = vectors;
+      const legend = detectLegend(vectors, pattern.legendPageIdx);
+      legendRef.current = legend;
+      const sizes = buildSizesFromLegend(legend);
+      // Bump assembled off/on so the assembly effect recomputes tile stride.
+      setPattern((p) => ({ ...p, cropMarginIn: marginIn, sizes, legendFound: legend.length > 0, assembled: false }));
+      setTimeout(() => setPattern((p) => ({ ...p, assembled: true })), 0);
+    } finally {
+      setReExtracting(false);
+    }
+  }
+
+  useEffect(() => {
+    const el = wrapRef.current; if (!el) return;
+    const ro = new ResizeObserver(() => setDims({ w: el.clientWidth, h: el.clientHeight }));
+    ro.observe(el); setDims({ w: el.clientWidth, h: el.clientHeight });
+    return () => ro.disconnect();
+  }, []);
+
+  // Assemble the pattern as VECTOR STROKES in a single design-space coordinate
+  // system. Each stroke is snapped to a legend size (or tagged construction).
+  // bounds = {w,h} of the assembled layout in page-pixels.
+  const assembledRef = useRef(null);
+  useEffect(() => {
+    const vectors = pageVectorsRef.current || [];
+    if (!pattern.assembled || !vectors.length || !pattern.slots) { assembledRef.current = null; return; }
+    const canvases = pageCanvasesRef.current;
+    // Tile stride comes from the EXTRACTED (possibly crop-trimmed) vector size, not
+    // the untrimmed render canvas. When a crop margin is applied, extractPageVectors
+    // shifts strokes to the trimmed origin and reports the smaller width/height; using
+    // the canvas size here would leave a white gap equal to the trimmed margin (the bug
+    // the user saw). The first real page's vector dimensions define the grid stride.
+    const firstPage = pattern.slots.find((s) => s.type === "page");
+    const fpvec = firstPage ? vectors[firstPage.page] : null;
+    const fc = firstPage ? (canvases ? canvases[firstPage.page] : null) : null;
+    if (!fpvec) { assembledRef.current = null; return; }
+    const tw = fpvec.width, th = fpvec.height;
+    const cols = pattern.gridCols;
+    const legendSigs = (legendRef.current || []).map((l) => l.sig);
+
+    const out = [];
+    const outTexts = [];
+    const pageRects = []; // {x,y,w,h} in page-pixel space, for the optional outline
+    const pageImages = [];
+    // flow slots into grid positions; blanks occupy a cell but draw nothing
+    pattern.slots.forEach((slot, idx) => {
+      if (slot.type !== "page") return; // skip blanks in final geometry
+      const pv = vectors[slot.page];
+      if (!pv) return;
+      const r = Math.floor(idx / cols), c = idx % cols;
+      const offX = c * tw, offY = r * th;
+      pageRects.push({ x: offX, y: offY, w: tw, h: th });
+      pageImages.push({ page: slot.page, offX, offY, w: tw, h: th });
+      for (const s of pv.strokes) {
+        const snapped = legendSigs.length ? snapToLegend(s.sig, legendSigs) : null;
+        out.push({
+          sig: snapped, raw: s.sig, width: s.width,
+          pts: s.pts.map(([x, y]) => [x + offX, y + offY]),
+        });
+      }
+      if (pv.textItems) {
+        for (const t of pv.textItems) {
+          outTexts.push({
+            str: t.str,
+            x: t.x + offX,
+            y: t.y + offY,
+            angle: t.angle,
+            fontScale: t.fontScale,
+          });
+        }
+      }
+    });
+
+    // Propagate size classification to short SOLID lines at corners
+    for (const s of out) {
+      if (s.sig) continue;
+      const pts = s.pts;
+      if (pts.length < 2) continue;
+      const p0 = pts[0];
+      const pN = pts[pts.length - 1];
+      const len = Math.hypot(pN[0] - p0[0], pN[1] - p0[1]);
+      if (len > 0 && len < 50) {
+        let closestSig = null;
+        let minDist = 8.0; // max connection distance in px
+        for (const os of out) {
+          if (!os.sig) continue;
+          const opts = os.pts;
+          if (opts.length < 2) continue;
+          const op0 = opts[0];
+          const opN = opts[opts.length - 1];
+          const d00 = Math.hypot(p0[0] - op0[0], p0[1] - op0[1]);
+          const d01 = Math.hypot(p0[0] - opN[0], p0[1] - opN[1]);
+          const d10 = Math.hypot(pN[0] - op0[0], pN[1] - opN[1]);
+          const d11 = Math.hypot(pN[0] - opN[0], pN[1] - opN[1]);
+          const d = Math.min(d00, d01, d10, d11);
+          if (d < minDist) {
+            minDist = d;
+            closestSig = os.sig;
+          }
+        }
+        if (closestSig) {
+          s.sig = closestSig;
+        }
+      }
+    }
+
+    const rowsUsed = Math.max(1, Math.ceil(pattern.slots.length / cols));
+    // TRUE real-world size comes from the PDF PAGE'S OWN physical dimensions.
+    // A tiled sewing PDF draws each tile at its true printed size already — when
+    // you print "actual size / 100%", one PDF page = one physical tile. So the
+    // real width of a tile in inches is the PDF page width in points / 72, which
+    // the extractor captured as realWIn/realHIn. We scale the rendered pixel tile
+    // (tw px) to that real size.
+    //
+    // We deliberately do NOT scale by the A4/Letter paper-size dropdown. The
+    // pattern's content size is fixed by the PDF; the paper choice only changes
+    // the blank margin around it when you print, never the pattern itself. Tying
+    // scale to paper width is what made the pattern grow ~3% when switching A4 →
+    // Letter (215.9 vs 210 mm) — a bug, since the same tile is the same size on
+    // either paper.
+    const fpv = vectors[firstPage.page];
+    const unitMM = cal.unit === "in" ? MM_PER_IN : 10;
+    let pageWUnits, pageHUnits;
+    if (fpv && fpv.realWIn > 0) {
+      // realWIn/realHIn are in inches; convert to the locked unit.
+      pageWUnits = cal.unit === "in" ? fpv.realWIn : fpv.realWIn * MM_PER_IN / 10;
+      pageHUnits = cal.unit === "in" ? fpv.realHIn : fpv.realHIn * MM_PER_IN / 10;
+    } else {
+      // Fallback only if the PDF reports no usable size: assume the chosen paper.
+      const ps = PAGE_SIZES[pos.projPageSize] || PAGE_SIZES[pattern.pageSize] || PAGE_SIZES.A4;
+      pageWUnits = ps.w / unitMM;
+      pageHUnits = ps.h / unitMM;
+    }
+    assembledRef.current = {
+      strokes: out,
+      textItems: outTexts,
+      pageRects,
+      pageImages,
+      w: tw * cols, h: th * rowsUsed,
+      tw, th,
+      pageWUnits, pageHUnits,
+      cols, rows: rowsUsed,
+    };
+  }, [pattern.assembled, pattern.slots, pattern.gridCols, pattern.pageSize, pattern.sizes, pos.projPageSize, cal.unit, pdfReady]); // eslint-disable-line
+
+  const H = useMemo(() => {
+    if (!cal.corners) return null;
+    const src = [[0, 0], [dd.wPx, 0], [dd.wPx, dd.hPx], [0, dd.hPx]];
+    return computeHomography(src, cal.corners);
+  }, [cal, dd]);
+
+  // RENDER
+  useEffect(() => {
+    const cv = canvasRef.current; if (!cv) return;
+    const dpr = window.devicePixelRatio || 1;
+    cv.width = dims.w * dpr; cv.height = dims.h * dpr;
+    cv.style.width = dims.w + "px"; cv.style.height = dims.h + "px";
+    const ctx = cv.getContext("2d");
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.clearRect(0, 0, dims.w, dims.h);
+    ctx.fillStyle = projecting ? (cal.projBg || "#000000") : T.panel2;
+    ctx.fillRect(0, 0, dims.w, dims.h);
+
+    if (projecting && H) {
+      // grid warped
+      if (showGridInProj) {
+        let gridColor = cal.gridColor || T.grid;
+        const bgIsDark = isColorDark(cal.projBg || "#000000");
+        if (bgIsDark && isColorDark(gridColor)) gridColor = T.projGrid;
+        drawGrid(ctx, H, dd, {
+          color: gridColor,
+          thickness: cal.gridThickness,
+          opacity: cal.gridOpacity,
+          cell: cal.cell,
+          majorEvery: cal.majorEvery,
+        });
+      }
+      drawPatternVector(ctx, dd, assembledRef.current, pos, pattern, {
+        warp: true, H, theme: T, cal, pageCanvases: pageCanvasesRef.current
+      });
+    } else {
+      // FLAT un-warped comparison preview
+      const dd2 = dd;
+      const aspect = dd2.wPx / dd2.hPx;
+      let bw = dims.w * 0.7 * projectZoom, bh = bw / aspect;
+      if (bh > dims.h * 0.8 * projectZoom) { bh = dims.h * 0.8 * projectZoom; bw = bh * aspect; }
+      const ox = (dims.w - bw) / 2, oy = (dims.h - bh) / 2;
+      
+      // flat grid (uses selected thickness, opacity, color and major bold lines)
+      const src = [[0, 0], [dd2.wPx, 0], [dd2.wPx, dd2.hPx], [0, dd2.hPx]];
+      const dst = [[ox, oy], [ox + bw, oy], [ox + bw, oy + bh], [ox, oy + bh]];
+      const H_flat = computeHomography(src, dst);
+      
+      let gridColor = cal.gridColor || T.grid;
+      drawGrid(ctx, H_flat, dd2, {
+        color: gridColor,
+        thickness: cal.gridThickness,
+        opacity: cal.gridOpacity,
+        cell: cal.cell,
+        majorEvery: cal.majorEvery,
+      });
+      // pattern flat (vector)
+      const asm = assembledRef.current;
+      if (asm && ((asm.strokes && asm.strokes.length) || (asm.pageImages && asm.pageImages.length))) {
+        // design-to-screen ratio: board is dd.wPx wide in design space, bw on screen
+        const d2s = bw / dd2.wPx;
+        drawPatternVector(ctx, dd, asm, pos, pattern, {
+          warp: false, theme: T, sx: ox, sy: oy, d2s, cal, pageCanvases: pageCanvasesRef.current
+        });
+        // bounding box of placed pattern (real-scale)
+        const realPerPagePx = (asm.pageWUnits / asm.tw) * dd2.ppu;
+        const ppToDesign = realPerPagePx * (pos.scale || 1);
+        const pwD = asm.w * ppToDesign, phD = asm.h * ppToDesign;
+        const bx = ox + (pos.x || 0) * d2s, by = oy + (pos.y || 0) * d2s;
+        ctx.strokeStyle = T.accent; ctx.setLineDash([6, 4]);
+        ctx.strokeRect(bx, by, pwD * d2s, phD * d2s); ctx.setLineDash([]);
+      } else {
+        ctx.fillStyle = T.sub; ctx.font = "14px sans-serif";
+        ctx.fillText("Assemble a pattern in the Load tab to preview.", ox + 12, oy + 24);
+      }
+      // scale verify
+      if (scaleTool.active) {
+        scaleTool.pts.forEach((p) => {
+          ctx.fillStyle = "#e2725b"; ctx.beginPath(); ctx.arc(p.x, p.y, 5, 0, 7); ctx.fill();
+        });
+        if (scaleTool.pts.length === 2) {
+          ctx.strokeStyle = "#e2725b";
+          ctx.beginPath(); ctx.moveTo(scaleTool.pts[0].x, scaleTool.pts[0].y);
+          ctx.lineTo(scaleTool.pts[1].x, scaleTool.pts[1].y); ctx.stroke();
+          const pxd = Math.hypot(scaleTool.pts[1].x - scaleTool.pts[0].x, scaleTool.pts[1].y - scaleTool.pts[0].y);
+          const unitsPerPx = dd2.wUnits / bw;
+          const real = pxd * unitsPerPx;
+          ctx.fillStyle = T.ink; ctx.font = "13px monospace";
+          ctx.fillText(`${real.toFixed(2)} ${cal.unit}`,
+            (scaleTool.pts[0].x + scaleTool.pts[1].x) / 2 + 8,
+            (scaleTool.pts[0].y + scaleTool.pts[1].y) / 2);
+        }
+      }
+    }
+  }, [dims, projecting, H, dd, pos, pattern, cal, scaleTool, T, projectZoom, showGridInProj]);
+
+  // Convert a screen-pixel drag delta into a design-space delta, so pos.x/y
+  // (design units) move correctly in both preview and projection.
+  function dragScale() {
+    if (projecting && H) {
+      // approximate: how many screen px one design px spans, sampled at board span
+      const a = applyH(H, 0, 0), b = applyH(H, dd.wPx, 0);
+      const span = Math.hypot(b[0] - a[0], b[1] - a[1]);
+      return span / dd.wPx || 1;
+    }
+    // flat preview: board width bw on screen vs dd.wPx in design space
+    const aspect = dd.wPx / dd.hPx;
+    let bw = dims.w * 0.7, bh = bw / aspect;
+    if (bh > dims.h * 0.8) { bh = dims.h * 0.8; bw = bh * aspect; }
+    return bw / dd.wPx || 1;
+  }
+
+  function getMouse(e) {
+    const r = canvasRef.current.getBoundingClientRect();
+    return { x: e.clientX - r.left, y: e.clientY - r.top };
+  }
+  function onDown(e) {
+    const m = getMouse(e);
+    if (scaleTool.active && !projecting) {
+      setScaleTool((s) => ({ ...s, pts: s.pts.length >= 2 ? [m] : [...s.pts, m] }));
+      return;
+    }
+    dragRef.current = { ...m, ox: pos.x || 0, oy: pos.y || 0, ds: dragScale() };
+  }
+  function onMove(e) {
+    if (!dragRef.current) return;
+    const m = getMouse(e);
+    const ds = dragRef.current.ds || 1;
+    setPos((p) => ({
+      ...p,
+      x: dragRef.current.ox + (m.x - dragRef.current.x) / ds,
+      y: dragRef.current.oy + (m.y - dragRef.current.y) / ds,
+    }));
+  }
+  function onUp() { dragRef.current = null; }
+
+  function startProject() {
+    if (!cal.saved || !H) { alert("Calibrate & save corners first (Tab 1)."); return; }
+    if (!pattern.assembled) { alert("Assemble a pattern first (Tab 2)."); return; }
+    setProjecting(true);
+    const el = wrapRef.current;
+    if (el && el.requestFullscreen) el.requestFullscreen().catch(() => {});
+  }
+  function stopProject() {
+    setProjecting(false);
+    if (document.fullscreenElement) document.exitFullscreen().catch(() => {});
+  }
+
+  return (
+    <div style={S.tabLayout}>
+      {!projecting && (
+        <aside style={S.sidebar}>
+          {(pattern.numPages || 0) > 1 && (
+            <Section S={S} title={<span>Overlap size <HelpDot T={T} text="Each page stays at true 100% scale, then is trimmed by this much on every edge so overlapping tiles butt together with no gap. Patterns that already sit edge-to-edge need 0; for overlap-style tiling (e.g. a 1/4&quot; registration margin) raise this until adjacent tiles meet cleanly. Re-assembles automatically." /></span>}>
+              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <button
+                  style={{
+                    fontFamily: "'Inter', sans-serif",
+                    fontSize: 15,
+                    fontWeight: "600",
+                    width: 32,
+                    height: 32,
+                    borderRadius: 6,
+                    border: `1px solid ${T.line}`,
+                    background: T.panel2,
+                    color: T.ink,
+                    cursor: "pointer",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    padding: 0
+                  }}
+                  disabled={reExtracting}
+                  onClick={() => {
+                    const curVal = pattern.cropMarginIn || 0;
+                    const newVal = Math.max(0, Math.round((curVal - 0.1) * 100) / 100);
+                    setPattern((p) => ({ ...p, cropMarginIn: newVal }));
+                    reExtractVectors(newVal);
+                  }}
+                >
+                  −
+                </button>
+                <input
+                  type="number"
+                  min={0}
+                  max={10}
+                  step={0.01}
+                  value={pattern.cropMarginIn || 0}
+                  onChange={(e) => {
+                    const val = parseFloat(e.target.value);
+                    setPattern((p) => ({ ...p, cropMarginIn: isNaN(val) ? 0 : val }));
+                  }}
+                  onBlur={(e) => {
+                    const val = parseFloat(e.target.value);
+                    const safeVal = isNaN(val) ? 0 : Math.max(0, val);
+                    setPattern((p) => ({ ...p, cropMarginIn: safeVal }));
+                    reExtractVectors(safeVal);
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      const val = parseFloat(e.target.value);
+                      const safeVal = isNaN(val) ? 0 : Math.max(0, val);
+                      setPattern((p) => ({ ...p, cropMarginIn: safeVal }));
+                      reExtractVectors(safeVal);
+                    }
+                  }}
+                  style={{
+                    fontFamily: "'JetBrains Mono', monospace",
+                    fontSize: 12,
+                    padding: "6px 10px",
+                    borderRadius: 6,
+                    border: `1px solid ${T.line}`,
+                    background: T.panel2,
+                    color: T.ink,
+                    width: "100%",
+                    boxSizing: "border-box",
+                    textAlign: "center"
+                  }}
+                  disabled={reExtracting}
+                />
+                <button
+                  style={{
+                    fontFamily: "'Inter', sans-serif",
+                    fontSize: 15,
+                    fontWeight: "600",
+                    width: 32,
+                    height: 32,
+                    borderRadius: 6,
+                    border: `1px solid ${T.line}`,
+                    background: T.panel2,
+                    color: T.ink,
+                    cursor: "pointer",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    padding: 0
+                  }}
+                  disabled={reExtracting}
+                  onClick={() => {
+                    const curVal = pattern.cropMarginIn || 0;
+                    const newVal = Math.round((curVal + 0.1) * 100) / 100;
+                    setPattern((p) => ({ ...p, cropMarginIn: newVal }));
+                    reExtractVectors(newVal);
+                  }}
+                >
+                  +
+                </button>
+              </div>
+              <div style={S.row2}>
+                <button style={S.btnSoft(T)} disabled={reExtracting}
+                  onClick={() => {
+                    setPattern((p) => ({ ...p, cropMarginIn: 0 }));
+                    reExtractVectors(0);
+                  }}>Reset to 0</button>
+                <button style={S.btnSoft(T)} disabled={reExtracting}
+                  onClick={() => reExtractVectors(pattern.cropMarginIn || 0)}>
+                  {reExtracting ? "Working…" : "Apply"}
+                </button>
+              </div>
+            </Section>
+          )}
+
+          <Section S={S} title="Appearance">
+            <Field S={S} label="Page background">
+              <input type="color" style={S.color} value={pattern.pageBgColor || "#ffffff"}
+                onChange={(e) => setPattern((p) => ({ ...p, pageBgColor: e.target.value }))} />
+            </Field>
+            <Slider S={S} label={<span>Page backing opacity <HelpDot T={T} text="Fills a solid 'paper' rectangle behind the lines. At 0 you see only the pattern lines (best for projecting onto fabric)." /></span>} min={0} max={1} step={0.05}
+              value={pattern.transparency}
+              onChange={(v) => setPattern((p) => ({ ...p, transparency: v }))} />
+            <Slider S={S} label="Layer opacity" min={0.1} max={1} step={0.05}
+              value={pattern.opacity} onChange={(v) => setPattern((p) => ({ ...p, opacity: v }))} />
+            <label style={S.checkRow}>
+              <input type="checkbox" checked={pattern.invertAll}
+                onChange={(e) => setPattern((p) => ({ ...p, invertAll: e.target.checked }))} />
+              <span>Global invert (flip all colors)</span>
+            </label>
+            <label style={{ ...S.checkRow, marginTop: 8 }}>
+              <input type="checkbox" checked={!!pattern.showTextOverlay}
+                onChange={(e) => setPattern((p) => ({ ...p, showTextOverlay: e.target.checked }))} />
+              <span>Show text overlay (labels/size keys)</span>
+            </label>
+            <label style={{ ...S.checkRow, marginTop: 8 }}>
+              <input type="checkbox" checked={!!pattern.showPageOutline}
+                onChange={(e) => setPattern((p) => ({ ...p, showPageOutline: e.target.checked }))} />
+              <span>Show page outlines</span>
+            </label>
+            <label style={{ ...S.checkRow, marginTop: 8 }}>
+              <input type="checkbox" checked={showGridInProj}
+                onChange={(e) => setShowGridInProj(e.target.checked)} />
+              <span>Show grid in projection mode</span>
+            </label>
+          </Section>
+
+          <Section S={S} title="Pattern Transform">
+            <Slider S={S} label="Rotate (°)" min={-180} max={180} step={1}
+              value={pattern.rotate} onChange={(v) => setPattern((p) => ({ ...p, rotate: v }))} />
+            <div style={{ ...S.row2, marginBottom: 12 }}>
+              <button style={S.btnSoft(T)} onClick={() => {
+                setPattern((p) => {
+                  let r = (p.rotate || 0) - 90;
+                  if (r < -180) r += 360;
+                  return { ...p, rotate: r };
+                });
+              }}>
+                ⟲ Rotate -90°
+              </button>
+              <button style={S.btnSoft(T)} onClick={() => {
+                setPattern((p) => {
+                  let r = (p.rotate || 0) + 90;
+                  if (r > 180) r -= 360;
+                  return { ...p, rotate: r };
+                });
+              }}>
+                ⟳ Rotate +90°
+              </button>
+            </div>
+          </Section>
+
+          {pattern.sizes && pattern.sizes.length > 0 && (
+            <Section S={S} title="Sizes">
+              <div style={{ ...S.row2, marginBottom: 8 }}>
+                <button style={S.btnSoft(T)}
+                  onClick={() => setPattern((p) => ({ ...p, sizes: p.sizes.map((z) => ({ ...z, visible: true })), selectedSize: "all" }))}>
+                  ✓ Check all
+                </button>
+                <button style={S.btnSoft(T)}
+                  onClick={() => setPattern((p) => ({ ...p, sizes: p.sizes.map((z) => ({ ...z, visible: false })) }))}>
+                  ✕ Uncheck all
+                </button>
+              </div>
+              {pattern.sizes.map((s) => (
+                <div key={s.id} style={{ ...S.sizeRow, flexWrap: "nowrap", gap: 6, margin: "2px 0" }}>
+                  <input type="checkbox" checked={s.visible}
+                    onChange={(e) => updateSize(setPattern, s.id, { visible: e.target.checked })}
+                    style={{ cursor: "pointer", flexShrink: 0, margin: 0 }} title="Show/hide" />
+                  <DashSwatch sig={s.sig} color={s.color} />
+                  <span style={{ fontSize: 11, minWidth: 45, flex: "0 0 auto", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }} title={s.label}>
+                    {s.label}
+                  </span>
+                  <input type="range" min={0.5} max={5} step={0.1} value={s.thickness || 1.4}
+                    title="Line thickness"
+                    onChange={(e) => updateSize(setPattern, s.id, { thickness: +e.target.value })}
+                    style={{ width: 50, height: 12, accentColor: s.color, flex: "1 1 auto", minWidth: 30 }} />
+                  <input type="color" value={s.color}
+                    style={{ width: 22, height: 20, borderRadius: 4, border: `1px solid ${T.line}`, cursor: "pointer", padding: 0, flexShrink: 0 }}
+                    title="Line color"
+                    onChange={(e) => updateSize(setPattern, s.id, { color: e.target.value })} />
+                </div>
+              ))}
+              <div style={{ ...S.hint, display: "flex", alignItems: "center" }}>
+                Row controls
+                <HelpDot T={T} text="Each row: the checkbox shows/hides that size, the swatch is its detected dash style, then its line color and thickness. The sliders adjust thickness, and the color box changes line colors." />
+              </div>
+              <div style={{ borderTop: `1px solid ${T.line}`, marginTop: 8, paddingTop: 10 }}>
+                <div style={{ ...S.label, marginBottom: 6 }}>
+                  Construction lines (cut edges, grainlines, notches)
+                </div>
+                <div style={{ ...S.sizeRow, flexWrap: "wrap" }}>
+                  <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12, flex: 1 }}>
+                    <input type="checkbox" checked={!pattern.hideConstruction}
+                      onChange={(e) => setPattern((p) => ({ ...p, hideConstruction: !e.target.checked }))} />
+                    show
+                  </label>
+                  <input type="color" value={pattern.constructionColor || "#222222"} style={S.colorSm}
+                    title="Construction line color"
+                    onChange={(e) => setPattern((p) => ({ ...p, constructionColor: e.target.value }))} />
+                  <input type="range" min={0.5} max={5} step={0.1}
+                    value={pattern.constructionThickness || 1}
+                    title="Construction line thickness"
+                    onChange={(e) => setPattern((p) => ({ ...p, constructionThickness: +e.target.value }))}
+                    style={{ width: "100%", accentColor: T.accent }} />
+                </div>
+                <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 11, color: T.sub, marginTop: 6 }}>
+                  <input type="checkbox" checked={!!pattern.keepConstructionOnIsolate}
+                    onChange={(e) => setPattern((p) => ({ ...p, keepConstructionOnIsolate: e.target.checked }))} />
+                  <span>Keep construction lines visible when isolating one size</span>
+                  <HelpDot T={T} text="By default, isolating a single size also hides construction lines so you see one clean line to trace. Check this to keep grainlines and notches visible alongside it." />
+                </label>
+              </div>
+            </Section>
+          )}
+
+          {pattern.loaded && (!pattern.sizes || pattern.sizes.length === 0) && (
+            <Section S={S} title="Pattern Lines">
+              <div style={{ ...S.sizeRow, flexWrap: "wrap", gap: 8 }}>
+                <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12, flex: 1, cursor: "pointer" }}>
+                  <input type="checkbox" checked={!pattern.hideConstruction}
+                    onChange={(e) => setPattern((p) => ({ ...p, hideConstruction: !e.target.checked }))} />
+                  <span>Show pattern lines</span>
+                </label>
+                <input type="color" value={pattern.constructionColor || "#222222"} style={S.colorSm}
+                  title="Line color"
+                  onChange={(e) => setPattern((p) => ({ ...p, constructionColor: e.target.value }))} />
+                <input type="range" min={0.5} max={5} step={0.1}
+                  value={pattern.constructionThickness || 1}
+                  title="Line thickness"
+                  onChange={(e) => setPattern((p) => ({ ...p, constructionThickness: +e.target.value }))}
+                  style={{ width: "100%", accentColor: T.accent }} />
+              </div>
+              <div style={S.hint}>
+                No size grading detected. All lines are drawn as a single size.
+              </div>
+            </Section>
+          )}
+
+          <Section S={S} title={<span>Scale Verify <HelpDot T={T} text={`Checks that the pattern is at true size. Click the two ends of a feature whose real length you know — like the printed test square on the pattern's first page. The readout shows what it currently measures in ${cal.unit}. If a 5 cm square reads 5 cm, scale is true; if not, nudge "Fine-tune scale" until it matches.`} /></span>}>
+            <button style={S.btnSoft(T)}
+              onClick={() => setScaleTool({ active: !scaleTool.active, pts: [] })}>
+              {scaleTool.active ? "Cancel measuring" : "Measure a known distance"}
+            </button>
+          </Section>
+
+          <Section S={S} title="Project">
+            <button style={S.btnAccent(T)} onClick={startProject}>Project Pattern</button>
+            <div style={S.hint}>
+              {cal.saved ? "✓ Using saved calibration." : "⚠ No saved calibration yet."}
+            </div>
+          </Section>
+        </aside>
+      )}
+
+      <div ref={wrapRef} style={{ ...S.stage, background: projecting ? (cal.projBg || "#000000") : T.panel2 }}>
+        {!projecting && (
+          <div style={S.zoomWrap}>
+            <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+              <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 10, color: T.sub, textTransform: "uppercase", letterSpacing: "0.05em" }}>Scale</span>
+              <input type="range" min={0.8} max={1.2} step={0.005} value={pos.scale}
+                onChange={(e) => setPos((p) => ({ ...p, scale: +e.target.value }))}
+                style={{ width: 80, accentColor: T.accent }} />
+              <span style={{ fontSize: 11, opacity: 0.8, fontFamily: "'JetBrains Mono', monospace", width: 35 }}>{(+pos.scale).toFixed(3)}</span>
+            </div>
+            <span style={{ width: 1, height: 16, background: T.line }} />
+            <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+              <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 10, color: T.sub, textTransform: "uppercase", letterSpacing: "0.05em" }}>Zoom</span>
+              <input type="range" min={0.4} max={1} step={0.05} value={projectZoom}
+                onChange={(e) => setProjectZoom(+e.target.value)}
+                style={{ width: 80, accentColor: T.accent }} />
+              <span style={{ fontSize: 11, opacity: 0.8, fontFamily: "'JetBrains Mono', monospace", width: 30 }}>{(+projectZoom).toFixed(2)}</span>
+            </div>
+          </div>
+        )}
+        {!projecting && (
+          <div style={{
+            position: "absolute",
+            bottom: 14,
+            right: 16,
+            zIndex: 10
+          }}>
+            <button style={{
+              fontFamily: "'Inter', sans-serif",
+              fontSize: 12,
+              fontWeight: 500,
+              padding: "8px 14px",
+              borderRadius: 6,
+              border: `1px solid ${T.line}`,
+              background: T.panel,
+              color: T.ink,
+              cursor: "pointer",
+              boxShadow: "none"
+            }}
+              onClick={() => { setPos((p) => ({ ...p, x: 0, y: 0, scale: 1 })); setProjectZoom(1); }}>
+              Reset position & scale
+            </button>
+          </div>
+        )}
+        <canvas ref={canvasRef} style={{ display: "block", cursor: "grab" }}
+          onMouseDown={onDown} onMouseMove={onMove} onMouseUp={onUp} onMouseLeave={onUp} />
+        {projecting && (
+          <div style={S.projControls}>
+            <button style={S.btnAccent(T)} onClick={stopProject}>Stop Projecting</button>
+            <span style={{ width: 1, height: 22, background: "rgba(128,128,128,0.4)", margin: "0 2px" }} />
+            <button 
+              style={{
+                fontFamily: "'Inter', sans-serif",
+                fontSize: 12,
+                fontWeight: 500,
+                padding: "6px 12px",
+                borderRadius: 6,
+                border: showGridInProj ? "none" : "1px solid rgba(255,255,255,0.25)",
+                background: showGridInProj ? T.accent : "rgba(255,255,255,0.12)",
+                color: "#fff",
+                cursor: "pointer",
+              }}
+              onClick={() => setShowGridInProj(!showGridInProj)}
+            >
+              {showGridInProj ? "Grid: On" : "Grid: Off"}
+            </button>
+            <span style={{ width: 1, height: 22, background: "rgba(128,128,128,0.4)", margin: "0 2px" }} />
+            {[
+              { c: "#000000", title: "Black background" },
+              { c: "#ffffff", title: "White background" },
+              { c: "#0b2a4a", title: "Blueprint background" },
+              { c: "#10331f", title: "Dark green background" },
+            ].map(({ c, title }) => (
+              <button key={c} title={title}
+                onClick={() => setCal((cc) => ({ ...cc, projBg: c }))}
+                style={{
+                  width: 24, height: 24, borderRadius: 6, cursor: "pointer", padding: 0,
+                  background: c,
+                  border: (cal.projBg || "#000000") === c
+                    ? `2px solid ${T.accent}` : `1px solid rgba(128,128,128,0.5)`,
+                  boxShadow: (cal.projBg || "#000000") === c ? `0 0 0 2px ${T.accent}55` : "none",
+                }} />
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// Draw assembled VECTOR strokes. Each stroke maps page-pixel coords -> design
+// space (scaled to fill the board width) -> screen, either warped through the
+// homography (project mode) or flat (preview). Filters by selected size and
+// applies solo/dim. Construction lines (sig === null) always show.
+function drawPatternVector(ctx, dd, asm, pos, pattern, opts) {
+  if (!asm || ((!asm.strokes || !asm.strokes.length) && (!asm.pageImages || !asm.pageImages.length))) return;
+  const sizes = pattern.sizes || [];
+  const sel = pattern.selectedSize;
+  const mode = pattern.selectMode || "solo";
+  const invert = pattern.invertAll;
+
+  const cal = opts.cal || {};
+  const bgIsDark = isColorDark(cal.projBg || "#000000");
+
+  const byId = new Map(sizes.map((s) => [String(s.id), s]));
+  const bySig = new Map(sizes.map((s) => [s.sig, s]));
+
+  // TRUE-SCALE mapping: page-pixel -> design-pixel.
+  const realPerPagePx = (asm.pageWUnits / asm.tw) * dd.ppu;
+  const ppToDesign = realPerPagePx * (pos.scale || 1);
+
+  const warp = opts.warp;
+  const H = opts.H;
+  const T = opts.theme;
+
+  const offDX = pos.x || 0;
+  const offDY = pos.y || 0;
+
+  const angleRad = ((pattern.rotate || 0) * Math.PI) / 180;
+  const cos = Math.cos(angleRad);
+  const sin = Math.sin(angleRad);
+  const w = asm.w * ppToDesign;
+  const h = asm.h * ppToDesign;
+  const cx = w / 2;
+  const cy = h / 2;
+
+  // Transform a point from design-space (scaled) to rotated and translated design-space
+  const transformDesignPt = (dx, dy) => {
+    const rx = dx - cx;
+    const ry = dy - cy;
+    const rotX = rx * cos - ry * sin + cx + offDX;
+    const rotY = rx * sin + ry * cos + cy + offDY;
+    return [rotX, rotY];
+  };
+
+  // Transform a point from page-pixel space to rotated and translated design-space
+  const transformPagePt = (px, py) => {
+    return transformDesignPt(px * ppToDesign, py * ppToDesign);
+  };
+
+  // Map a design-space point to the screen.
+  const toScreen = (dX, dY) => {
+    if (warp) return applyH(H, dX, dY);
+    return [opts.sx + dX * opts.d2s, opts.sy + dY * opts.d2s];
+  };
+
+  // ---- page backing (transparency) / page canvas images ----
+  const tr = pattern.transparency;
+  if (tr > 0) {
+    if (opts.pageCanvases && asm.pageImages && asm.pageImages.length > 0) {
+      ctx.save();
+      ctx.globalAlpha = tr;
+      if (invert) ctx.filter = "invert(1)";
+      for (const pimg of asm.pageImages) {
+        const cv = opts.pageCanvases[pimg.page];
+        if (!cv) continue;
+        if (warp) {
+          // Perspective warping approximation via slicing
+          const sliceW = 8;
+          const numSlices = Math.ceil(pimg.w / sliceW);
+          for (let s = 0; s < numSlices; s++) {
+            const sx = s * sliceW;
+            const sw = Math.min(sliceW, pimg.w - sx);
+            const [tlX, tlY] = toScreen(...transformPagePt(pimg.offX + sx, pimg.offY));
+            const [blX, blY] = toScreen(...transformPagePt(pimg.offX + sx, pimg.offY + pimg.h));
+            const [trX, trY] = toScreen(...transformPagePt(pimg.offX + sx + sw, pimg.offY));
+            const dx = tlX;
+            const dy = Math.min(tlY, trY);
+            const dw = Math.max(1, trX - tlX);
+            const dh = Math.max(1, blY - tlY);
+            
+            // Map from design space page-pixel scale back to actual canvas scale
+            const canvasSrcX = (sx / pimg.w) * cv.width;
+            const canvasSrcW = (sw / pimg.w) * cv.width;
+            ctx.drawImage(cv, canvasSrcX, 0, canvasSrcW, cv.height, dx, dy, dw, dh);
+          }
+        } else {
+          // Flat preview: simple drawImage
+          const [sX, sY] = toScreen(pimg.offX * ppToDesign, pimg.offY * ppToDesign);
+          const dw = pimg.w * ppToDesign * opts.d2s;
+          const dh = pimg.h * ppToDesign * opts.d2s;
+          ctx.drawImage(cv, sX, sY, dw, dh);
+        }
+      }
+      ctx.restore();
+    } else if (!invert) {
+      // Solid fallback backing
+      const corners = [[0, 0], [w, 0], [w, h], [0, h]];
+      ctx.save();
+      ctx.globalAlpha = tr;
+      ctx.fillStyle = pattern.pageBgColor || "#ffffff";
+      ctx.beginPath();
+      corners.forEach(([dcx, dcy], i) => {
+        const [dX, dY] = transformDesignPt(dcx, dcy);
+        const [X, Y] = toScreen(dX, dY);
+        if (i === 0) ctx.moveTo(X, Y); else ctx.lineTo(X, Y);
+      });
+      ctx.closePath(); ctx.fill();
+      ctx.restore();
+    }
+  }
+
+  for (const st of asm.strokes) {
+    const size = st.sig ? bySig.get(st.sig) : null;
+    let color, width, alpha = pattern.opacity;
+    if (!size) {
+      // construction line (cut edges, grainlines, notches)
+      if (pattern.hideConstruction) continue;
+      if (sel !== "all" && mode === "solo" && !pattern.keepConstructionOnIsolate) continue;
+      const cc = pattern.constructionColor || (warp ? (bgIsDark ? T.projLine : "#1a1a1a") : "#222");
+      color = invert ? invertHex(cc) : cc;
+      width = pattern.constructionThickness || Math.max(0.6, (st.width || 1));
+    } else {
+      if (!size.visible) continue;
+      if (sel !== "all" && String(size.id) !== String(sel)) {
+        if (mode === "solo") continue;
+        alpha = pattern.opacity * 0.18;
+      }
+      color = size.invert ? invertHex(size.color) : size.color;
+      if (invert) color = invertHex(color);
+      width = size.thickness || 1.2;
+    }
+
+    ctx.save();
+    ctx.globalAlpha = alpha;
+    ctx.strokeStyle = color;
+    ctx.lineWidth = width;
+    ctx.setLineDash([]);
+    ctx.beginPath();
+    for (let i = 0; i < st.pts.length; i++) {
+      const [px, py] = st.pts[i];
+      const [dX, dY] = transformPagePt(px, py);
+      const [X, Y] = toScreen(dX, dY);
+      if (i === 0) ctx.moveTo(X, Y); else ctx.lineTo(X, Y);
+    }
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  // ---- optional page-outline overlay ----
+  if (pattern.showPageOutline && asm.pageRects) {
+    ctx.save();
+    ctx.lineWidth = 0.5;
+    ctx.strokeStyle = invert ? "#ffffff" : (warp ? (T.projLine || "#ffffff") : "#000000");
+    ctx.globalAlpha = warp ? 0.5 : 0.4;
+    ctx.setLineDash([3, 3]);
+    for (const pr of asm.pageRects) {
+      const corners = [
+        [pr.x, pr.y], [pr.x + pr.w, pr.y],
+        [pr.x + pr.w, pr.y + pr.h], [pr.x, pr.y + pr.h],
+      ];
+      ctx.beginPath();
+      corners.forEach(([px, py], i) => {
+        const [dX, dY] = transformPagePt(px, py);
+        const [X, Y] = toScreen(dX, dY);
+        if (i === 0) ctx.moveTo(X, Y); else ctx.lineTo(X, Y);
+      });
+      ctx.closePath(); ctx.stroke();
+    }
+    ctx.setLineDash([]);
+    ctx.restore();
+  }
+
+  // ---- optional text overlay ----
+  if (pattern.showTextOverlay && asm.textItems) {
+    ctx.save();
+    ctx.fillStyle = invert ? "#ffffff" : (warp ? (bgIsDark ? (T.projLine || "#ffffff") : "#222222") : "#222222");
+    ctx.textAlign = "left";
+    ctx.textBaseline = "alphabetic";
+    for (const t of asm.textItems) {
+      const [dX, dY] = transformPagePt(t.x, t.y);
+      const [X, Y] = toScreen(dX, dY);
+      
+      const textScale = warp ? (pos.scale || 1) : opts.d2s;
+      const size = (t.fontScale || 10) * textScale;
+      ctx.font = `${size}px sans-serif`;
+      
+      ctx.save();
+      ctx.translate(X, Y);
+      ctx.rotate((t.angle || 0) + angleRad);
+      ctx.fillText(t.str, 0, 0);
+      ctx.restore();
+    }
+    ctx.restore();
+  }
+}
+
+function invertHex(hex) {
+  const m = hex.replace("#", "");
+  if (m.length !== 6) return hex;
+  const r = 255 - parseInt(m.slice(0, 2), 16);
+  const g = 255 - parseInt(m.slice(2, 4), 16);
+  const b = 255 - parseInt(m.slice(4, 6), 16);
+  return `#${[r, g, b].map((x) => x.toString(16).padStart(2, "0")).join("")}`;
+}
+
+// Perceived luminance test, used to keep grid/cursor visible on the chosen
+// projection background.
+function isColorDark(hex) {
+  const m = (hex || "").replace("#", "");
+  if (m.length !== 6) return true;
+  const r = parseInt(m.slice(0, 2), 16), g = parseInt(m.slice(2, 4), 16), b = parseInt(m.slice(4, 6), 16);
+  return (0.299 * r + 0.587 * g + 0.114 * b) < 128;
+}
+
+/* ===========================================================================
+   SHARED UI PRIMITIVES
+   =========================================================================== */
+/* A small "?" that reveals help text on hover only — keeps the panel clean. */
+function HelpDot({ T, text }) {
+  const [show, setShow] = useState(false);
+  const [style, setStyle] = useState({
+    left: "50%",
+    right: "auto",
+    transform: "translateX(-50%)",
+  });
+  const ref = useRef(null);
+
+  useEffect(() => {
+    if (show && ref.current) {
+      const rect = ref.current.getBoundingClientRect();
+      const aside = ref.current.closest("aside");
+      const limitLeft = aside ? aside.getBoundingClientRect().left + 8 : 10;
+      const limitRight = aside ? aside.getBoundingClientRect().right - 8 : window.innerWidth - 10;
+
+      if (rect.left < limitLeft) {
+        setStyle({
+          left: 0,
+          right: "auto",
+          transform: "none",
+        });
+      } else if (rect.right > limitRight) {
+        setStyle({
+          left: "auto",
+          right: 0,
+          transform: "none",
+        });
+      }
+    }
+  }, [show]);
+
+  const onLeave = () => {
+    setShow(false);
+    setStyle({
+      left: "50%",
+      right: "auto",
+      transform: "translateX(-50%)",
+    });
+  };
+
+  return (
+    <span style={{ position: "relative", display: "inline-flex", marginLeft: 6 }}>
+      <span
+        onMouseEnter={() => setShow(true)}
+        onMouseLeave={onLeave}
+        style={{
+          width: 16, height: 16, borderRadius: "50%", border: `1px solid ${T.sub}`,
+          color: T.sub, fontSize: 11, lineHeight: "14px", textAlign: "center",
+          cursor: "help", userSelect: "none", display: "inline-block",
+        }}>?</span>
+      {show && (
+        <span
+          ref={ref}
+          style={{
+            position: "absolute",
+            top: 20,
+            left: style.left,
+            right: style.right,
+            transform: style.transform,
+            zIndex: 50,
+            width: 220,
+            background: T.ink,
+            color: T.panel,
+            fontSize: 11,
+            lineHeight: 1.4,
+            padding: "8px 10px",
+            borderRadius: 8,
+            boxShadow: "0 4px 14px rgba(0,0,0,0.25)",
+            textTransform: "none", // Prevent inherited UPPERCASE from section titles
+          }}>{text}</span>
+      )}
+    </span>
+  );
+}
+
+function Section({ S, title, children }) {
+  return (
+    <div style={S.section}>
+      <div style={S.sectionTitle}>{title}</div>
+      <div style={S.sectionBody}>{children}</div>
+    </div>
+  );
+}
+function Field({ S, label, children }) {
+  return (
+    <div style={S.field}>
+      <label style={S.label}>{label}</label>
+      {children}
+    </div>
+  );
+}
+function Slider({ S, label, value, min, max, step, onChange }) {
+  return (
+    <div style={S.field}>
+      <label style={S.label}>{label} <span style={{ opacity: 0.6 }}>{(+value).toFixed(2)}</span></label>
+      <input type="range" min={min} max={max} step={step} value={value}
+        onChange={(e) => onChange(+e.target.value)} style={S.range} />
+    </div>
+  );
+}
+
+function FontInjector({ T }) {
+  useEffect(() => {
+    const id = "sp-fonts";
+    if (document.getElementById(id)) return;
+    const l = document.createElement("link");
+    l.id = id; l.rel = "stylesheet";
+    l.href = "https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap";
+    document.head.appendChild(l);
+  }, []);
+
+  return (
+    <style dangerouslySetInnerHTML={{ __html: `
+      /* Trackless scrollbars */
+      ::-webkit-scrollbar {
+        width: 6px;
+        height: 6px;
+      }
+      ::-webkit-scrollbar-track {
+        background: transparent;
+      }
+      ::-webkit-scrollbar-thumb {
+        background: ${T.line};
+        border-radius: 3px;
+      }
+      ::-webkit-scrollbar-thumb:hover {
+        background: ${T.sub};
+      }
+
+      /* Custom range input */
+      input[type="range"] {
+        -webkit-appearance: none;
+        appearance: none;
+        background: transparent;
+        cursor: pointer;
+        width: 100%;
+        height: 16px;
+        margin: 0;
+      }
+      input[type="range"]:focus {
+        outline: none;
+      }
+      input[type="range"]::-webkit-slider-runnable-track {
+        background: ${T.line};
+        height: 2px;
+        border-radius: 1px;
+      }
+      input[type="range"]::-webkit-slider-thumb {
+        -webkit-appearance: none;
+        appearance: none;
+        margin-top: -5px; /* (2 - 12) / 2 = -5 */
+        background-color: ${T.accent};
+        border: 2px solid ${T.panel};
+        height: 12px;
+        width: 12px;
+        border-radius: 50%;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.12);
+        transition: transform 0.15s ease, background-color 0.15s ease;
+      }
+      input[type="range"]::-webkit-slider-thumb:hover {
+        transform: scale(1.25);
+      }
+      /* Firefox */
+      input[type="range"]::-moz-range-track {
+        background: ${T.line};
+        height: 2px;
+        border-radius: 1px;
+      }
+      input[type="range"]::-moz-range-thumb {
+        background-color: ${T.accent};
+        border: 2px solid ${T.panel};
+        height: 12px;
+        width: 12px;
+        border-radius: 50%;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.12);
+        transition: transform 0.15s ease, background-color 0.15s ease;
+      }
+      input[type="range"]::-moz-range-thumb:hover {
+        transform: scale(1.25);
+      }
+
+      /* Custom Checkboxes */
+      input[type="checkbox"] {
+        -webkit-appearance: none;
+        appearance: none;
+        background-color: ${T.panel2};
+        border: 1px solid ${T.line};
+        padding: 0;
+        border-radius: 4px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        position: relative;
+        cursor: pointer;
+        width: 15px;
+        height: 15px;
+        margin: 0;
+        vertical-align: middle;
+        transition: all 0.15s ease;
+      }
+      input[type="checkbox"]:checked {
+        background-color: ${T.accent};
+        border-color: ${T.accent};
+      }
+      input[type="checkbox"]:checked::after {
+        content: '';
+        position: absolute;
+        left: 4px;
+        top: 1px;
+        width: 4px;
+        height: 8px;
+        border: solid white;
+        border-width: 0 2px 2px 0;
+        transform: rotate(45deg);
+      }
+      input[type="checkbox"]:focus {
+        outline: none;
+        border-color: ${T.accent};
+      }
+
+      /* Global Button Transitions & Scale on Click */
+      button {
+        transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+      }
+      button:hover {
+        opacity: 0.92;
+      }
+      button:active {
+        transform: scale(0.97);
+      }
+      button:disabled {
+        opacity: 0.4 !important;
+        cursor: not-allowed;
+        transform: none !important;
+      }
+    `}} />
+  );
+}
+
+/* ===========================================================================
+   STYLES
+   =========================================================================== */
+function makeStyles(T) {
+  const mono = "'JetBrains Mono', monospace";
+  const body = "'Inter', sans-serif";
+  const display = "'Outfit', sans-serif";
+  return {
+    root: { position: "fixed", inset: 0, background: T.bg, color: T.ink, fontFamily: body, display: "flex", flexDirection: "column", overflow: "hidden" },
+    header: { display: "flex", alignItems: "center", gap: 24, padding: "12px 22px", borderBottom: `1px solid ${T.line}`, background: T.panel, flexShrink: 0 },
+    brand: { display: "flex", alignItems: "center", gap: 12 },
+    brandIcon: { width: 30, height: 30, objectFit: "contain", borderRadius: 6, display: "block" },
+    brandName: { fontFamily: display, fontSize: 17, letterSpacing: "0.16em", fontWeight: 600 },
+    brandSub: { fontFamily: mono, fontSize: 10, color: T.sub, letterSpacing: "0.05em", textTransform: "uppercase" },
+    tabs: { display: "flex", gap: 4, marginLeft: 16 },
+    tab: { fontFamily: body, fontSize: 13, fontWeight: 500, padding: "8px 16px", border: "1px solid transparent", background: "transparent", color: T.sub, cursor: "pointer", borderRadius: 6, transition: "all 0.2s ease", display: "inline-flex", alignItems: "center", gap: 6 },
+    tabActive: { background: T.panel2, color: T.ink, borderColor: T.line },
+    themeWrap: { marginLeft: "auto", display: "flex", alignItems: "center", gap: 8 },
+    themeLabel: { fontFamily: mono, fontSize: 10, color: T.sub, textTransform: "uppercase", letterSpacing: "0.1em" },
+    themeSelect: { fontFamily: mono, fontSize: 12, padding: "6px 10px", borderRadius: 6, border: `1px solid ${T.line}`, background: T.panel2, color: T.ink },
+    main: { flex: 1, overflow: "hidden" },
+    tabLayout: { display: "flex", height: "100%" },
+    sidebar: { width: 310, flexShrink: 0, borderRight: `1px solid ${T.line}`, background: T.panel, overflowY: "auto", padding: "8px 0" },
+    stage: { flex: 1, position: "relative", overflow: "hidden" },
+
+    section: { borderBottom: `1px solid ${T.line}`, padding: "18px 22px" },
+    sectionTitle: { fontFamily: mono, fontSize: 11, textTransform: "uppercase", letterSpacing: "0.12em", color: T.accent, marginBottom: 12, fontWeight: 500 },
+    sectionBody: { display: "flex", flexDirection: "column", gap: 12 },
+    field: { display: "flex", flexDirection: "column", gap: 5 },
+    label: { fontSize: 11.5, color: T.sub, fontWeight: 500 },
+    input: { fontFamily: body, fontSize: 13, padding: "8px 12px", borderRadius: 6, border: `1px solid ${T.line}`, background: T.panel2, color: T.ink, width: "100%", boxSizing: "border-box", transition: "all .15s ease", boxShadow: "none" },
+    range: { width: "100%", accentColor: T.accent },
+    color: { width: "100%", height: 32, borderRadius: 6, border: `1px solid ${T.line}`, background: "none", cursor: "pointer" },
+    colorSm: { width: 34, height: 28, borderRadius: 4, border: `1px solid ${T.line}`, cursor: "pointer", padding: 0 },
+    row2: { display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 },
+    toggleRow: { display: "flex", gap: 4, background: T.panel2, padding: 3, borderRadius: 6, border: `1px solid ${T.line}` },
+    toggleBtn: { flex: 1, fontFamily: body, fontSize: 12, padding: "7px 8px", border: "none", background: "transparent", color: T.sub, cursor: "pointer", borderRadius: 5, textTransform: "capitalize", transition: "all .15s ease" },
+    toggleOn: (T) => ({ background: T.accent, color: "#fff" }),
+    chipWrap: { display: "flex", flexWrap: "wrap", gap: 6 },
+    chip: { fontFamily: mono, fontSize: 11, padding: "6px 11px", borderRadius: 12, border: `1px solid ${T.line}`, background: T.panel2, color: T.sub, cursor: "pointer", textTransform: "lowercase", transition: "all .15s ease" },
+    chipOn: (T) => ({ background: T.accent, color: "#fff", borderColor: T.accent }),
+    btn: (T) => ({ fontFamily: body, fontSize: 13, fontWeight: 600, padding: "10px 14px", borderRadius: 6, border: "none", background: T.ink, color: T.bg, cursor: "pointer", width: "100%", transition: "all .15s ease", boxShadow: "none" }),
+    btnAccent: (T) => ({ fontFamily: body, fontSize: 13, fontWeight: 600, padding: "11px 14px", borderRadius: 6, border: "none", background: T.accent, color: "#fff", cursor: "pointer", width: "100%", transition: "all .15s ease", boxShadow: "none" }),
+    btnSoft: (T) => ({ fontFamily: body, fontSize: 12.5, fontWeight: 500, padding: "9px 12px", borderRadius: 6, border: `1px solid ${T.line}`, background: T.panel2, color: T.ink, cursor: "pointer", width: "100%", transition: "all .15s ease" }),
+    btnDanger: (T) => ({ fontFamily: body, fontSize: 12.5, fontWeight: 500, padding: "9px 12px", borderRadius: 6, border: `1px solid #c0392b44`, background: "transparent", color: "#c0392b", cursor: "pointer", width: "100%", transition: "all .15s ease" }),
+    hint: { fontFamily: mono, fontSize: 10.5, color: T.sub, lineHeight: 1.5 },
+    checkRow: { display: "flex", alignItems: "center", gap: 8, fontSize: 13, cursor: "pointer" },
+
+    zoomWrap: { position: "absolute", top: 14, right: 16, zIndex: 10, display: "flex", alignItems: "center", gap: 12, background: T.panel + "d9", padding: "8px 14px", borderRadius: 8, border: `1px solid ${T.line}`, boxShadow: "0 2px 12px rgba(0,0,0,0.04)", backdropFilter: "blur(12px)" },
+    zoomLabel: { fontFamily: mono, fontSize: 10, color: T.sub, textTransform: "uppercase" },
+    zoomSlider: { width: 120, accentColor: T.accent },
+    projControls: { position: "absolute", top: 16, right: 16, display: "flex", alignItems: "center", gap: 8, zIndex: 10, background: "rgba(20,20,20,0.65)", padding: "6px 10px", borderRadius: 8, backdropFilter: "blur(12px)", border: "1px solid rgba(255,255,255,0.08)", boxShadow: "0 4px 16px rgba(0,0,0,0.12)" },
+    xBtn: (T) => ({ fontFamily: body, fontSize: 13, fontWeight: 600, padding: "10px 18px", borderRadius: 6, border: "none", background: "rgba(255,255,255,0.12)", color: "#fff", cursor: "pointer", backdropFilter: "blur(8px)" }),
+
+    fileInput: { fontSize: 12, color: T.sub },
+    empty: { height: "100%", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 12, color: T.sub, fontFamily: mono, fontSize: 13 },
+    tray: { marginBottom: 16, background: T.panel, borderRadius: 8, padding: 14, border: `1px solid ${T.line}` },
+    trayTitle: { fontFamily: mono, fontSize: 11, textTransform: "uppercase", letterSpacing: "0.1em", color: T.accent, marginBottom: 10 },
+    trayPages: { display: "flex", flexWrap: "wrap", gap: 8 },
+    trayPage: { position: "relative", cursor: "pointer", borderRadius: 6, overflow: "hidden", border: `1px solid ${T.line}`, background: "#fff" },
+    trayImg: { display: "block", width: 90, height: "auto" },
+    pageNum: { position: "absolute", bottom: 2, right: 2, fontFamily: mono, fontSize: 10, background: "rgba(0,0,0,0.6)", color: "#fff", padding: "1px 5px", borderRadius: 4 },
+    previewBox: { background: T.panel, borderRadius: 8, padding: 14, border: `1px solid ${T.line}` },
+    iconBtn: (T) => ({ width: 26, height: 26, borderRadius: 6, border: `1px solid ${T.line}`, background: T.panel2, color: T.ink, fontSize: 15, lineHeight: 1, cursor: "pointer", display: "inline-flex", alignItems: "center", justifyContent: "center", padding: 0 }),
+    cell: { aspectRatio: "1", display: "flex", alignItems: "center", justifyContent: "center", overflow: "hidden", minHeight: 40 },
+    cellImg: { width: "100%", height: "100%", objectFit: "contain" },
+    cellEmpty: { fontFamily: mono, fontSize: 10, color: T.sub },
+    slotIdx: { position: "absolute", bottom: 2, left: 4, fontFamily: mono, fontSize: 9, color: T.sub },
+    slotCheck: { position: "absolute", top: 4, right: 4, width: 16, height: 16, cursor: "pointer", accentColor: T.accent, margin: 0 },
+    sizeRow: { display: "flex", alignItems: "center", gap: 8 },
+    sizeLabel: { flex: 1, fontFamily: body, fontSize: 12, padding: "6px 8px", borderRadius: 6, border: `1px solid ${T.line}`, background: T.panel2, color: T.ink, minWidth: 0 },
+  };
+}
+
+
+const _root = ReactDOM.createRoot(document.getElementById('root'));
+_root.render(<ProjectLinea />);
+
+</script></body></html>
     .row:last-child{margin-bottom:0}
     .row label{color:var(--tx-dim);font-size:11px;min-width:62px;flex-shrink:0}
     .vl{color:var(--tx-dim);font-size:11px;min-width:32px;text-align:right;flex-shrink:0}
