@@ -788,7 +788,7 @@ function migratePattern(p) {
     legendFound: false, legendPageIdx: null, invertAll: false, transparency: 1, pageBgColor: "#ffffff",
     cropMarginIn: 0,
     lineColor: "#1a1a1a", highlightColor: "#e2725b", rotate: 0, scale: 1,
-    opacity: 1, assembled: false, thumbs: [],
+    opacity: 1, assembled: false, thumbs: [], mirror: false,
   };
   if (!p || typeof p !== "object") return base;
   const m = { ...base, ...p };
@@ -866,6 +866,7 @@ function ProjectLinea() {
       scale: 1,
       opacity: 1,
       assembled: false,
+      mirror: false,
     }
   );
 
@@ -1112,13 +1113,14 @@ function CalibrateTab({ T, S, cal, setCal }) {
 
   const H = useMemo(() => {
     const src = [[0, 0], [dd.wPx, 0], [dd.wPx, dd.hPx], [0, dd.hPx]];
-    // apply zoom around center
+    // apply zoom around center (force 1 when projecting/fullscreen)
     const cx = dims.w / 2, cy = dims.h / 2;
+    const z = projecting ? 1 : zoom;
     const zc = corners.map(([x, y]) => [
-      cx + (x - cx) * zoom, cy + (y - cy) * zoom,
+      cx + (x - cx) * z, cy + (y - cy) * z,
     ]);
     return computeHomography(src, zc);
-  }, [corners, dd, zoom, dims]);
+  }, [corners, dd, zoom, dims, projecting]);
 
   // RENDER loop
   useEffect(() => {
@@ -1137,11 +1139,12 @@ function CalibrateTab({ T, S, cal, setCal }) {
     ctx.fillStyle = projecting ? projBg : T.panel2;
     ctx.fillRect(0, 0, dims.w, dims.h);
 
-    // Grid uses the SAME color the user picked before projecting, so what they
-    // set up is exactly what they get. On a dark projection background we lift a
-    // too-dark grid color to stay visible.
-    let gridColor = cal.gridColor || T.grid;
-    if (projecting && bgIsDark && isColorDark(gridColor)) gridColor = T.projGrid;
+    // Grid uses the SAME color the user picked before projecting.
+    // If no custom color is chosen, use the theme default and lift it on dark backgrounds.
+    let gridColor = cal.gridColor;
+    if (!gridColor) {
+      gridColor = (projecting && bgIsDark && isColorDark(T.grid)) ? T.projGrid : T.grid;
+    }
     drawGrid(ctx, H, dd, {
       color: gridColor,
       thickness: cal.gridThickness,
@@ -1150,7 +1153,8 @@ function CalibrateTab({ T, S, cal, setCal }) {
       majorEvery: cal.majorEvery,
     });
 
-    const zc = displayCorners(corners, zoom, dims);
+    const z = projecting ? 1 : zoom;
+    const zc = displayCorners(corners, z, dims);
     drawCornerHandles(ctx, zc, cal.circleSize, active, T.accent);
 
     if (!projecting) {
@@ -1204,7 +1208,8 @@ function CalibrateTab({ T, S, cal, setCal }) {
   }
 
   function hitCorner(m) {
-    const zc = displayCorners(corners, zoom, dims);
+    const z = projecting ? 1 : zoom;
+    const zc = displayCorners(corners, z, dims);
     for (let i = 0; i < 4; i++) {
       const dx = zc[i][0] - m.x, dy = zc[i][1] - m.y;
       if (Math.hypot(dx, dy) < cal.circleSize + 8) return i;
@@ -1213,7 +1218,8 @@ function CalibrateTab({ T, S, cal, setCal }) {
   }
 
   function moveCorner(i, mx, my) {
-    const [lx, ly] = toLocal(mx, my, zoom, dims);
+    const z = projecting ? 1 : zoom;
+    const [lx, ly] = toLocal(mx, my, z, dims);
     let nx = lx, ny = ly;
     if (cursorMode === "snap") {
       // snap to grid intersection in screen space (approx via design grid)
@@ -1228,7 +1234,7 @@ function CalibrateTab({ T, S, cal, setCal }) {
           if (d < bd) { bd = d; best = [px, py]; }
         }
       if (best) {
-        const [blx, bly] = toLocal(best[0], best[1], zoom, dims);
+        const [blx, bly] = toLocal(best[0], best[1], z, dims);
         nx = blx; ny = bly;
       }
     }
@@ -2171,9 +2177,11 @@ function ProjectTab({
     if (projecting && H) {
       // grid warped
       if (showGridInProj) {
-        let gridColor = cal.gridColor || T.grid;
+        let gridColor = cal.gridColor;
         const bgIsDark = isColorDark(cal.projBg || "#000000");
-        if (bgIsDark && isColorDark(gridColor)) gridColor = T.projGrid;
+        if (!gridColor) {
+          gridColor = (bgIsDark && isColorDark(T.grid)) ? T.projGrid : T.grid;
+        }
         drawGrid(ctx, H, dd, {
           color: gridColor,
           thickness: cal.gridThickness,
@@ -2218,9 +2226,36 @@ function ProjectTab({
         const realPerPagePx = (asm.pageWUnits / asm.tw) * dd2.ppu;
         const ppToDesign = realPerPagePx * (pos.scale || 1);
         const pwD = asm.w * ppToDesign, phD = asm.h * ppToDesign;
-        const bx = ox + (pos.x || 0) * d2s, by = oy + (pos.y || 0) * d2s;
+        const cx = pwD / 2;
+        const cy = phD / 2;
+        const offDX = pos.x || 0;
+        const offDY = pos.y || 0;
+        const angleRad = ((pattern.rotate || 0) * Math.PI) / 180;
+        const cos = Math.cos(angleRad);
+        const sin = Math.sin(angleRad);
+
+        const transformPt = (dx, dy) => {
+          const rx = dx - cx;
+          const ry = dy - cy;
+          const rotX = rx * cos - ry * sin + cx + offDX;
+          const rotY = rx * sin + ry * cos + cy + offDY;
+          return [ox + rotX * d2s, oy + rotY * d2s];
+        };
+
+        const corners = [
+          transformPt(0, 0),
+          transformPt(pwD, 0),
+          transformPt(pwD, phD),
+          transformPt(0, phD)
+        ];
+
         ctx.strokeStyle = T.accent; ctx.setLineDash([6, 4]);
-        ctx.strokeRect(bx, by, pwD * d2s, phD * d2s); ctx.setLineDash([]);
+        ctx.beginPath();
+        corners.forEach(([X, Y], i) => {
+          if (i === 0) ctx.moveTo(X, Y); else ctx.lineTo(X, Y);
+        });
+        ctx.closePath();
+        ctx.stroke(); ctx.setLineDash([]);
       } else {
         ctx.fillStyle = T.sub; ctx.font = "14px sans-serif";
         ctx.fillText("Assemble a pattern in the Load tab to preview.", ox + 12, oy + 24);
@@ -2436,6 +2471,11 @@ function ProjectTab({
               <input type="checkbox" checked={!!pattern.showPageOutline}
                 onChange={(e) => setPattern((p) => ({ ...p, showPageOutline: e.target.checked }))} />
               <span>Show page outlines</span>
+            </label>
+            <label style={{ ...S.checkRow, marginTop: 8 }}>
+              <input type="checkbox" checked={!!pattern.mirror}
+                onChange={(e) => setPattern((p) => ({ ...p, mirror: e.target.checked }))} />
+              <span>Mirror image (horizontal flip)</span>
             </label>
             <label style={{ ...S.checkRow, marginTop: 8 }}>
               <input type="checkbox" checked={showGridInProj}
@@ -2700,7 +2740,8 @@ function drawPatternVector(ctx, dd, asm, pos, pattern, opts) {
 
   // Transform a point from design-space (scaled) to rotated and translated design-space
   const transformDesignPt = (dx, dy) => {
-    const rx = dx - cx;
+    const mx = pattern.mirror ? (w - dx) : dx;
+    const rx = mx - cx;
     const ry = dy - cy;
     const rotX = rx * cos - ry * sin + cx + offDX;
     const rotY = rx * sin + ry * cos + cy + offDY;
@@ -2724,36 +2765,94 @@ function drawPatternVector(ctx, dd, asm, pos, pattern, opts) {
     if (opts.pageCanvases && asm.pageImages && asm.pageImages.length > 0) {
       ctx.save();
       ctx.globalAlpha = tr;
-      if (invert) ctx.filter = "invert(1)";
-      for (const pimg of asm.pageImages) {
-        const cv = opts.pageCanvases[pimg.page];
-        if (!cv) continue;
-        if (warp) {
-          // Perspective warping approximation via slicing
-          const sliceW = 8;
+      
+      if (warp) {
+        if (!invert) {
+          // Fill solid warped background polygons first
+          ctx.save();
+          ctx.fillStyle = pattern.pageBgColor || "#ffffff";
+          for (const pimg of asm.pageImages) {
+            ctx.beginPath();
+            const corners = [
+              [pimg.offX, pimg.offY],
+              [pimg.offX + pimg.w, pimg.offY],
+              [pimg.offX + pimg.w, pimg.offY + pimg.h],
+              [pimg.offX, pimg.offY + pimg.h]
+            ];
+            corners.forEach(([px, py], i) => {
+              const [tlX, tlY] = toScreen(...transformPagePt(px, py));
+              if (i === 0) ctx.moveTo(tlX, tlY); else ctx.lineTo(tlX, tlY);
+            });
+            ctx.closePath(); ctx.fill();
+          }
+          ctx.restore();
+        }
+        
+        ctx.save();
+        if (invert) ctx.filter = "invert(1)";
+        else ctx.globalCompositeOperation = "multiply";
+        
+        // Slicing render
+        const sliceW = 8;
+        for (const pimg of asm.pageImages) {
+          const cv = opts.pageCanvases[pimg.page];
+          if (!cv) continue;
           const numSlices = Math.ceil(pimg.w / sliceW);
+          const mPx = (cv.width - pimg.w) / 2;
           for (let s = 0; s < numSlices; s++) {
             const sx = s * sliceW;
             const sw = Math.min(sliceW, pimg.w - sx);
             const [tlX, tlY] = toScreen(...transformPagePt(pimg.offX + sx, pimg.offY));
             const [blX, blY] = toScreen(...transformPagePt(pimg.offX + sx, pimg.offY + pimg.h));
             const [trX, trY] = toScreen(...transformPagePt(pimg.offX + sx + sw, pimg.offY));
-            const dx = tlX;
-            const dy = Math.min(tlY, trY);
-            const dw = Math.max(1, trX - tlX);
-            const dh = Math.max(1, blY - tlY);
             
-            // Map from design space page-pixel scale back to actual canvas scale
-            const canvasSrcX = (sx / pimg.w) * cv.width;
-            const canvasSrcW = (sw / pimg.w) * cv.width;
+            const dx = Math.min(tlX, trX);
+            const dy = Math.min(tlY, trY);
+            const dw = Math.max(1, Math.abs(trX - tlX));
+            const dh = Math.max(1, Math.abs(blY - tlY));
+            
+            let canvasSrcX = mPx + sx;
+            let canvasSrcW = sw;
+            if (pattern.mirror) {
+              canvasSrcX = cv.width - mPx - sx - sw;
+            }
+            
             ctx.drawImage(cv, canvasSrcX, 0, canvasSrcW, cv.height, dx, dy, dw, dh);
           }
-        } else {
-          // Flat preview: simple drawImage
-          const [sX, sY] = toScreen(pimg.offX * ppToDesign, pimg.offY * ppToDesign);
-          const dw = pimg.w * ppToDesign * opts.d2s;
-          const dh = pimg.h * ppToDesign * opts.d2s;
-          ctx.drawImage(cv, sX, sY, dw, dh);
+        }
+        ctx.restore();
+      } else {
+        // Flat preview: Draw with solid background + multiply composite to support panning/rotation/scaling
+        const [scx, scy] = toScreen(...transformDesignPt(cx, cy));
+        const s = ppToDesign * opts.d2s;
+        
+        for (const pimg of asm.pageImages) {
+          const cv = opts.pageCanvases[pimg.page];
+          if (!cv) continue;
+          const rx = pimg.offX - cx / ppToDesign;
+          const ry = pimg.offY - cy / ppToDesign;
+          
+          ctx.save();
+          ctx.translate(scx, scy);
+          ctx.rotate(angleRad);
+          if (pattern.mirror) {
+            ctx.scale(-s, s);
+          } else {
+            ctx.scale(s, s);
+          }
+          
+          if (!invert) {
+            ctx.fillStyle = pattern.pageBgColor || "#ffffff";
+            ctx.fillRect(rx, ry, pimg.w, pimg.h);
+            ctx.globalCompositeOperation = "multiply";
+          } else {
+            ctx.filter = "invert(1)";
+          }
+          
+          const mPx = (cv.width - pimg.w) / 2;
+          const mPy = (cv.height - pimg.h) / 2;
+          ctx.drawImage(cv, mPx, mPy, pimg.w, pimg.h, rx, ry, pimg.w, pimg.h);
+          ctx.restore();
         }
       }
       ctx.restore();
@@ -2851,7 +2950,12 @@ function drawPatternVector(ctx, dd, asm, pos, pattern, opts) {
       
       ctx.save();
       ctx.translate(X, Y);
-      ctx.rotate((t.angle || 0) + angleRad);
+      if (pattern.mirror) {
+        ctx.scale(-1, 1);
+        ctx.rotate(-((t.angle || 0) + angleRad));
+      } else {
+        ctx.rotate((t.angle || 0) + angleRad);
+      }
       ctx.fillText(t.str, 0, 0);
       ctx.restore();
     }
@@ -3200,1617 +3304,3 @@ const _root = ReactDOM.createRoot(document.getElementById('root'));
 _root.render(<ProjectLinea />);
 
 </script></body></html>
-    .row:last-child{margin-bottom:0}
-    .row label{color:var(--tx-dim);font-size:11px;min-width:62px;flex-shrink:0}
-    .vl{color:var(--tx-dim);font-size:11px;min-width:32px;text-align:right;flex-shrink:0}
-    .hint{font-size:11px;color:var(--tx-mut);line-height:1.5;margin-bottom:6px}
-    .hint.ok{color:var(--success)}.hint.warn{color:var(--warn)}.hint.err{color:var(--danger)}
-
-    input[type=range]{flex:1;height:4px;accent-color:var(--accent);cursor:pointer}
-    input[type=color]{width:28px;height:22px;border:1px solid var(--in-bdr);background:none;cursor:pointer;padding:1px;border-radius:3px}
-    select,input[type=text],input[type=number]{background:var(--in-bg);border:1px solid var(--in-bdr);color:var(--tx);padding:3px 6px;border-radius:4px;font-size:11px;outline:none}
-    select:focus,input[type=text]:focus,input[type=number]:focus{border-color:var(--accent)}
-    input[type=number]{width:56px;text-align:right}
-    button{background:var(--btn);border:1px solid var(--in-bdr);color:var(--tx);padding:4px 10px;border-radius:4px;cursor:pointer;font-size:11px;transition:background .12s,border-color .12s;white-space:nowrap}
-    button:hover{background:var(--btn-h);border-color:#555}
-    button.active{background:rgba(79,163,255,.2);border-color:var(--accent);color:var(--accent)}
-    button.sm{padding:3px 7px;font-size:10px}
-    button.danger{border-color:var(--danger);color:var(--danger)}
-    button.danger:hover{background:rgba(255,82,82,.15)}
-    button.accent{background:var(--accent);border-color:var(--accent);color:#000;font-weight:600}
-    button.accent:hover{background:var(--accent-h)}
-    button.full{width:100%;margin-bottom:5px;padding:6px}
-    button.full:last-child{margin-bottom:0}
-    .bgrp{display:flex;gap:2px}
-    .tool-btn{padding:3px 8px;font-size:10px;border-radius:3px}
-
-    .file-drop{display:flex;align-items:center;justify-content:center;border:1px dashed var(--in-bdr);
-      border-radius:5px;padding:12px 8px;cursor:pointer;text-align:center;color:var(--tx-dim);
-      font-size:11px;transition:border-color .15s,background .15s;margin-bottom:6px}
-    .file-drop:hover,.file-drop.drag-over{border-color:var(--accent);background:rgba(79,163,255,.05)}
-
-    .size-entry{border:1px solid var(--sec);border-radius:5px;padding:6px 7px;margin-bottom:5px}
-    .size-hdr{display:flex;align-items:center;gap:5px;margin-bottom:5px}
-    .dash-sw{width:36px;height:14px;flex-shrink:0;border-radius:2px}
-    .size-lbl-in{flex:1;background:transparent;border:none;color:var(--tx);font-size:11px;padding:0;outline:none;border-bottom:1px solid transparent}
-    .size-lbl-in:focus{border-bottom-color:var(--accent)}
-    .size-vis{display:flex;gap:2px}
-    .vis-btn{padding:2px 5px;font-size:10px;border-radius:3px}
-    .vs-show{background:rgba(68,217,136,.2);border-color:var(--success);color:var(--success)}
-    .vs-ghost{background:rgba(255,179,71,.2);border-color:var(--warn);color:var(--warn)}
-    .vs-hide{background:rgba(255,82,82,.15);border-color:var(--danger);color:var(--danger)}
-    .size-ctrls{display:flex;align-items:center;gap:5px;margin-top:4px}
-    .act-sz{font-size:10px;padding:2px 5px}
-    .act-sz.on{color:var(--warn);border-color:var(--warn);background:rgba(255,179,71,.15)}
-
-    .mode-panel::-webkit-scrollbar{width:4px}
-    .mode-panel::-webkit-scrollbar-track{background:transparent}
-    .mode-panel::-webkit-scrollbar-thumb{background:var(--in-bdr);border-radius:2px}
-
-    #canvas-area{flex:1;position:relative;overflow:hidden;background:#000}
-    #main-canvas{position:absolute;top:0;left:0;width:100%;height:100%;cursor:crosshair}
-    #loupe-canvas{position:absolute;bottom:14px;right:14px;width:180px;height:180px;
-      border:2px solid rgba(255,255,255,.3);border-radius:4px;display:none;pointer-events:none}
-    #minimap{position:absolute;bottom:14px;left:14px;width:160px;
-      background:rgba(0,0,0,.8);border:1px solid rgba(255,255,255,.25);border-radius:4px;
-      overflow:hidden;display:none}
-    #minimap canvas{display:block;width:160px}
-    #minimap-label{position:absolute;top:3px;left:5px;font-size:9px;color:rgba(255,255,255,.4);pointer-events:none}
-    #float-toolbar{position:absolute;top:10px;left:50%;transform:translateX(-50%);
-      background:rgba(0,0,0,.85);border:1px solid var(--accent);border-radius:6px;
-      padding:5px 10px;display:flex;align-items:center;gap:6px;z-index:10;backdrop-filter:blur(8px)}
-    #float-toolbar.hidden{display:none}
-    .ft-lbl{color:var(--accent);font-size:10px;font-weight:700;letter-spacing:.5px;text-transform:uppercase}
-    .ft-cn{color:var(--warn);font-size:11px;font-weight:700;min-width:22px}
-    .ft-sep{color:var(--tx-mut)}
-
-    .modal-ov{position:fixed;inset:0;background:rgba(0,0,0,.75);display:flex;align-items:center;justify-content:center;z-index:100;backdrop-filter:blur(4px)}
-    .modal-ov.hidden{display:none}
-    .modal-box{background:#1e1e1e;border:1px solid var(--sec);border-radius:8px;padding:20px;min-width:280px;max-width:380px}
-    .modal-title{font-size:14px;font-weight:700;margin-bottom:8px}
-    .modal-body{color:var(--tx-dim);font-size:12px;margin-bottom:14px;line-height:1.5}
-    .modal-acts{display:flex;justify-content:flex-end;gap:8px}
-
-    /* assembly modal */
-    #modal-assembly{align-items:flex-start;padding:16px}
-    .asm-wrap{background:#1a1a1a;border:1px solid var(--sec);border-radius:8px;
-      width:min(1100px,97vw);height:min(740px,92vh);display:flex;flex-direction:column;overflow:hidden}
-    .asm-head{padding:10px 16px;border-bottom:1px solid var(--sec);flex-shrink:0;display:flex;align-items:center;gap:12px}
-    .asm-head-title{font-size:13px;font-weight:700}
-    .asm-head-meta{font-size:11px;color:var(--tx-dim);flex:1}
-    .asm-body{flex:1;display:flex;overflow:hidden;min-height:0}
-    .asm-sidebar{width:200px;flex-shrink:0;border-right:1px solid var(--sec);padding:10px;overflow-y:auto;display:flex;flex-direction:column;gap:10px}
-    .asm-sidebar .st{margin-bottom:4px}
-    .asm-main{flex:1;overflow:auto;padding:10px;background:#0e0e0e}
-    .asm-grid{display:grid;gap:6px;width:fit-content;padding:4px}
-    /* slot */
-    .asm-slot{position:relative;border:1.5px solid var(--sec);border-radius:4px;
-      background:#252525;overflow:hidden;user-select:none;transition:border-color .15s,opacity .15s}
-    .asm-slot img{display:block;width:100%;height:100%;object-fit:contain;background:#fff}
-    .asm-slot .asm-overlay{position:absolute;inset:0;pointer-events:none}
-    .asm-slot .asm-tile-num{position:absolute;bottom:2px;left:4px;font-size:11px;
-      font-weight:700;color:rgba(255,255,255,.6);text-shadow:0 1px 3px #000}
-    .asm-slot .asm-pg-num{position:absolute;bottom:2px;right:4px;font-size:9px;color:rgba(255,255,255,.35)}
-    .asm-slot .asm-toggle{position:absolute;top:2px;right:2px;width:18px;height:18px;
-      background:rgba(0,0,0,.65);border:1px solid rgba(255,255,255,.2);color:#ccc;
-      border-radius:50%;cursor:pointer;font-size:10px;line-height:18px;text-align:center;
-      pointer-events:auto;padding:0;z-index:2;transition:background .1s}
-    .asm-slot .asm-toggle:hover{background:var(--btn-h)}
-    .asm-slot.excl{opacity:.3;border-color:var(--danger)}
-    .asm-slot.excl .asm-toggle{background:rgba(255,82,82,.6);color:#fff}
-    .asm-slot.excl .asm-tile-num{display:none}
-    .asm-slot.drag-over{border-color:var(--accent)!important;background:rgba(79,163,255,.1)}
-    .asm-slot.drag-src{opacity:.4}
-    .asm-slot.loading{display:flex;align-items:center;justify-content:center;min-height:60px;color:var(--tx-mut);font-size:9px}
-    /* progress */
-    .asm-prog-wrap{padding:8px 0}
-    .asm-prog-bar-bg{height:3px;background:var(--sec);border-radius:2px}
-    .asm-prog-bar{height:100%;background:var(--accent);border-radius:2px;transition:width .15s;width:0}
-    .asm-foot{padding:8px 14px;border-top:1px solid var(--sec);flex-shrink:0;display:flex;align-items:center;gap:8px}
-    .asm-foot-hint{flex:1;font-size:11px;color:var(--tx-dim)}
-
-    .info-badge{background:rgba(79,163,255,.1);border:1px solid rgba(79,163,255,.3);
-      border-radius:4px;padding:5px 8px;font-size:11px;color:var(--accent);margin-bottom:6px}
-    .chip{display:inline-block;background:var(--in-bg);border:1px solid var(--in-bdr);
-      border-radius:12px;padding:2px 7px;font-size:10px;color:var(--tx-dim);cursor:pointer;
-      transition:border-color .1s,color .1s;margin:1px}
-    .chip:hover{border-color:var(--accent);color:var(--accent)}
-
-    body.proj-mode #sidebar{display:none}
-    body.proj-mode #float-toolbar,body.proj-mode #loupe-canvas,body.proj-mode #minimap{display:none!important}
-    body.proj-mode #main-canvas{cursor:none}
-    .global-ctrls{border-top:1px solid var(--sb-border);margin-top:auto;flex-shrink:0}
-  </style>
-</head>
-<body>
-<div id="app">
-  <aside id="sidebar">
-    <div class="mode-tabs">
-      <button class="mode-tab active" data-mode="calibrate">Calibrate</button>
-      <button class="mode-tab" data-mode="pattern">Pattern</button>
-    </div>
-
-    <!-- CALIBRATE -->
-    <div id="panel-calibrate" class="mode-panel">
-      <div class="section">
-        <div class="st">Projection Setup</div>
-        <div class="row"><label>Mat / Board</label><select id="board-preset" style="flex:1"></select></div>
-        <div id="board-custom" class="row hidden">
-          <input type="number" id="board-w" min="1" step="0.5" value="24" style="width:48px">
-          <span style="color:var(--tx-dim)">×</span>
-          <input type="number" id="board-h" min="1" step="0.5" value="36" style="width:48px">
-          <select id="board-unit"><option value="in">in</option><option value="cm">cm</option></select>
-        </div>
-        <div class="row"><label>Projector</label><select id="proj-preset" style="flex:1"></select></div>
-        <div id="proj-custom" class="row hidden">
-          <input type="number" id="proj-w" min="1" value="1920" style="width:52px">
-          <span style="color:var(--tx-dim)">×</span>
-          <input type="number" id="proj-h" min="1" value="1080" style="width:52px">
-          <span style="color:var(--tx-dim);font-size:10px">px</span>
-        </div>
-        <div class="info-badge" id="setup-info">Select mat size to begin.</div>
-        <button class="full" id="btn-apply-setup">Apply Setup → Set Corners + Scale</button>
-      </div>
-      <div class="section">
-        <div class="st">Grid</div>
-        <div class="row"><label>Unit</label><div class="bgrp"><button id="unit-in" class="sm active">inches</button><button id="unit-cm" class="sm">cm</button></div></div>
-        <div class="row"><label>Cell Size</label><select id="cell-size"><option value="0.5">0.5</option><option value="1" selected>1</option><option value="2">2</option></select></div>
-        <div class="row"><label>Color</label><input type="color" id="grid-color" value="#00cc88"></div>
-        <div class="row"><label>Opacity</label><input type="range" id="grid-opacity" min="0" max="1" step="0.05" value="0.7"><span class="vl" id="grid-opacity-val">70%</span></div>
-        <div class="row"><label>Weight</label><input type="range" id="grid-weight" min="0.5" max="4" step="0.5" value="1"><span class="vl" id="grid-weight-val">1px</span></div>
-      </div>
-      <div class="section">
-        <div class="st">Corner Warping</div>
-        <div class="row"><label>Mode</label><div class="bgrp"><button id="corner-drag-mode" class="sm active">Drag</button><button id="corner-float-mode" class="sm">Float</button></div></div>
-        <div id="float-mode-info" class="hidden">
-          <div class="hint">Double-click a corner to float it. Single-click canvas to lock.</div>
-          <div class="ss">Cursor Assist</div>
-          <div style="display:flex;flex-wrap:wrap;gap:4px;margin-bottom:6px">
-            <button class="tool-btn" id="sb-loupe">Loupe</button>
-            <button class="tool-btn" id="sb-snap">Snap</button>
-            <button class="tool-btn" id="sb-crosshair">⊕ Crosshair</button>
-          </div>
-          <div class="hint">Arrow keys nudge 1px · Shift+Arrow = 10px</div>
-        </div>
-      </div>
-      <div class="section">
-        <div class="st">Scale Verify</div>
-        <div class="hint" id="scale-hint">Click two points to verify real-world scale.</div>
-        <div id="scale-dist-row" class="row hidden"><label>Distance</label><input type="number" id="scale-distance" min="0.01" step="0.1" value="1"><span id="scale-unit-lbl">in</span></div>
-        <div id="scale-act-row" class="row hidden"><button id="btn-lock-scale">Lock Scale</button><button id="btn-clear-scale">Clear</button></div>
-        <div id="scale-locked-info" class="hint ok hidden"></div>
-        <div class="row" id="btn-pick-row"><button id="btn-pick-scale" class="sm">Pick Points</button></div>
-      </div>
-      <div class="section"><button class="full danger" id="btn-reset-cal">Reset Calibration</button></div>
-    </div>
-
-    <!-- PATTERN -->
-    <div id="panel-pattern" class="mode-panel hidden">
-      <div class="section">
-        <div class="st">Pattern File</div>
-        <label class="file-drop" id="pdf-drop-label">
-          <input type="file" id="pdf-input" accept=".pdf" hidden>
-          <span id="pdf-label-text">Drop PDF or click to upload</span>
-        </label>
-        <div id="pdf-loaded-bar" class="hidden" style="display:flex;gap:4px;margin-bottom:6px">
-          <div id="page-nav" class="hidden" style="display:flex;align-items:center;gap:4px;flex:1">
-            <button id="btn-prev-page" class="sm">‹</button>
-            <span id="page-info" style="flex:1;text-align:center;color:var(--tx-dim);font-size:11px">1/1</span>
-            <button id="btn-next-page" class="sm">›</button>
-          </div>
-          <button id="btn-unload-pdf" class="sm danger" title="Remove loaded PDF">✕ Unload</button>
-        </div>
-        <div id="asm-summary" class="hidden">
-          <div class="info-badge" id="asm-summary-text"></div>
-          <button class="full" id="btn-open-assembly">✦ Edit Assembly Layout</button>
-        </div>
-      </div>
-      <div class="section">
-        <div class="st">Pattern Scale</div>
-        <div class="hint" id="ref-sq-hint">Click two corners of the pattern's printed reference box or mark.</div>
-        <div id="ref-sq-idle" class="row"><button id="btn-start-ref-sq" class="sm">Pick Reference Mark</button></div>
-        <div id="ref-sq-active" class="row hidden">
-          <button id="btn-pick-ref-sq" class="sm active">Picking…</button>
-          <button id="btn-cancel-ref-sq" class="sm">Cancel</button>
-        </div>
-        <div id="ref-sq-ctrls" class="hidden">
-          <div class="row"><label>Real size</label><input type="number" id="ref-sq-size" min="0.01" step="0.1" value="2"><span id="ref-sq-unit-lbl">in</span></div>
-          <div class="row"><button id="btn-apply-ref-sq">Apply Scale</button><button id="btn-clear-ref-sq">Clear</button></div>
-        </div>
-      </div>
-      <div class="section">
-        <div class="st">Transform</div>
-        <div class="row"><label>X / Y</label><input type="number" id="pat-x" value="0" style="width:50px"><input type="number" id="pat-y" value="0" style="width:50px"><button id="btn-center-pat" class="sm">Center</button></div>
-        <div class="row"><label>Rotation</label><input type="range" id="pat-rot" min="-180" max="180" step="1" value="0"><input type="number" id="pat-rot-num" min="-180" max="180" value="0" style="width:40px">°</div>
-        <div class="row"><label>Scale</label><input type="range" id="pat-scale" min="0.05" max="4" step="0.01" value="1"><span class="vl" id="pat-scale-val">100%</span></div>
-        <div class="row"><label>Opacity</label><input type="range" id="pat-opacity" min="0" max="1" step="0.05" value="1"><span class="vl" id="pat-opacity-val">100%</span></div>
-        <div class="row"><button id="btn-reset-xform" class="sm">Reset Transform</button></div>
-      </div>
-      <div class="section">
-        <div class="st">Background</div>
-        <div class="hint">Make the page white transparent to show the grid through the pattern.</div>
-        <div class="row"><label>Opacity</label><input type="range" id="bg-opacity" min="0" max="1" step="0.05" value="1"><span class="vl" id="bg-opacity-val">100%</span></div>
-        <div class="row"><label>Color</label><input type="color" id="bg-color" value="#ffffff"><span style="font-size:10px;color:var(--tx-dim)">page background color</span></div>
-      </div>
-      <div class="section">
-        <div class="st">Sizes</div>
-        <div id="sizes-panel"><div class="hint">Load a PDF to detect size lines.</div></div>
-      </div>
-      <div class="section">
-        <div class="st">Line Style</div>
-        <div class="row"><label>Line Color</label><input type="color" id="line-color" value="#000000"></div>
-        <div class="row"><label>Highlight</label><input type="color" id="highlight-color" value="#ff2222"></div>
-        <div class="row"><label>Weight</label><input type="range" id="line-weight" min="0.5" max="5" step="0.5" value="1"><span class="vl" id="line-weight-val">1px</span></div>
-      </div>
-    </div>
-
-    <div class="section global-ctrls">
-      <button class="full" id="btn-global-invert">⟳ Global Invert</button>
-      <button class="full accent" id="btn-project-mode">▶ Project Mode (P)</button>
-    </div>
-  </aside>
-
-  <main id="canvas-area">
-    <canvas id="main-canvas"></canvas>
-    <canvas id="loupe-canvas" width="180" height="180"></canvas>
-    <div id="minimap"><canvas id="minimap-canvas"></canvas><span id="minimap-label">Overview</span></div>
-    <div id="float-toolbar" class="hidden">
-      <span class="ft-lbl">Float</span><span class="ft-cn" id="ft-corner-name">TL</span>
-      <span class="ft-sep">|</span>
-      <button class="tool-btn" id="ft-loupe">Loupe</button>
-      <button class="tool-btn" id="ft-snap">Snap</button>
-      <button class="tool-btn" id="ft-crosshair">⊕</button>
-      <span class="ft-sep">|</span>
-      <button id="ft-cancel" class="sm danger">Cancel</button>
-    </div>
-  </main>
-</div>
-
-<!-- Reset modal -->
-<div id="modal-reset" class="modal-ov hidden">
-  <div class="modal-box">
-    <div class="modal-title">Reset Calibration?</div>
-    <div class="modal-body">All corner positions and scale will be cleared.</div>
-    <div class="modal-acts"><button id="modal-cancel">Cancel</button><button id="modal-confirm" class="danger">Reset</button></div>
-  </div>
-</div>
-
-<!-- Assembly modal -->
-<div id="modal-assembly" class="modal-ov hidden">
-  <div class="asm-wrap">
-    <div class="asm-head">
-      <div>
-        <div class="asm-head-title" id="asm-title">Pattern Assembly</div>
-        <div class="asm-head-meta" id="asm-meta"></div>
-      </div>
-    </div>
-    <div class="asm-body">
-      <div class="asm-sidebar">
-        <div>
-          <div class="st">Grid Layout</div>
-          <div class="row"><label>Columns</label><input type="number" id="asm-cols" min="1" max="30" value="6" style="width:48px"></div>
-          <div class="row"><label>Rows</label><input type="number" id="asm-rows" min="1" max="30" value="7" style="width:48px"></div>
-          <div class="hint" style="margin-top:4px">Drag pages to reorder within the grid.</div>
-        </div>
-        <div>
-          <div class="st">Overlap Trim</div>
-          <div class="row"><input type="range" id="asm-trim" min="0" max="1.5" step="0.05" value="0.5"><span class="vl" id="asm-trim-val">0.5"</span></div>
-          <div class="hint">Inches to trim from each page edge (removes the registration overlap).</div>
-        </div>
-        <div>
-          <div class="st">Page Info</div>
-          <div class="hint" id="asm-page-info"></div>
-          <div class="hint" id="asm-size-info"></div>
-        </div>
-        <div id="asm-prog-wrap" class="hidden">
-          <div class="st">Rendering…</div>
-          <div class="hint" id="asm-prog-text"></div>
-          <div class="asm-prog-bar-bg"><div class="asm-prog-bar" id="asm-prog-bar"></div></div>
-        </div>
-        <div>
-          <div class="st">Quick Actions</div>
-          <button class="full sm" id="btn-asm-excl-pg1">Exclude Page 1 (cover)</button>
-          <button class="full sm" id="btn-asm-excl-first2">Exclude Pages 1–2</button>
-          <button class="full sm" id="btn-asm-include-all">Include All Pages</button>
-        </div>
-        <div>
-          <div class="st">Extracted Sizes</div>
-          <div id="asm-sizes-hint" class="hint">Detecting…</div>
-          <div id="asm-sizes-chips"></div>
-        </div>
-      </div>
-      <div class="asm-main">
-        <div class="asm-grid" id="asm-grid"></div>
-      </div>
-    </div>
-    <div class="asm-foot">
-      <div class="asm-foot-hint" id="asm-foot-hint">Toggle ✓/✕ to include/exclude. Drag to reorder.</div>
-      <button id="btn-asm-cancel">Cancel</button>
-      <button id="btn-asm-assemble" class="accent">Assemble Pattern</button>
-    </div>
-  </div>
-</div>
-
-<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
-<script>
-'use strict';
-const pdfjsLib = window['pdfjs-dist/build/pdf'];
-pdfjsLib.GlobalWorkerOptions.workerSrc =
-  'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
-
-// ── CONSTANTS ───────────────────────────────────────────────────
-const BOARD_PRESETS=[
-  {label:'9" × 12"',w:9,h:12,unit:'in'},
-  {label:'12" × 18"',w:12,h:18,unit:'in'},
-  {label:'18" × 24"',w:18,h:24,unit:'in'},
-  {label:'24" × 36"',w:24,h:36,unit:'in'},
-  {label:'36" × 48"',w:36,h:48,unit:'in'},
-  {label:'45" × 60"',w:45,h:60,unit:'in'},
-  {label:'48" × 72"',w:48,h:72,unit:'in'},
-  {label:'A1 (23.4"×33.1")',w:23.4,h:33.1,unit:'in'},
-  {label:'A0 (33.1"×46.8")',w:33.1,h:46.8,unit:'in'},
-  {label:'Custom…',w:0,h:0,unit:'in'},
-];
-const PROJ_PRESETS=[
-  {label:'Full HD 1920×1080',w:1920,h:1080},
-  {label:'WUXGA 1920×1200',w:1920,h:1200},
-  {label:'WXGA 1280×800',w:1280,h:800},
-  {label:'XGA 1024×768',w:1024,h:768},
-  {label:'4K 3840×2160',w:3840,h:2160},
-  {label:'Use current window',w:0,h:0},
-  {label:'Custom…',w:0,h:0},
-];
-// Standard page sizes in pts (portrait w < h)
-const PAGE_SIZES=[
-  {name:'A5',w:420,h:595},{name:'A4',w:595,h:842},{name:'A3',w:842,h:1191},
-  {name:'A2',w:1191,h:1684},{name:'A1',w:1684,h:2384},{name:'A0',w:2384,h:3370},
-  {name:'Letter',w:612,h:792},{name:'Legal',w:612,h:1008},{name:'Tabloid',w:792,h:1224},
-  {name:'Half-Letter',w:396,h:612},
-];
-const CORNER_NAMES=['TL','TR','BR','BL'];
-const CORNER_COLORS=['#4fa3ff','#ff9944','#ff4fa3','#44d988'];
-const CHR=11;
-const GROUP_COLORS=['#ff2222','#2288ff','#22cc44','#ff8822','#cc22ff','#22cccc','#ffcc22','#ff44aa'];
-
-// ── STATE ────────────────────────────────────────────────────────
-const S={
-  appMode:'calibrate',projectMode:false,
-  canvasW:0,canvasH:0,dpr:1,
-  board:{w:24,h:36,unit:'in'},
-  projector:{w:1920,h:1080},
-  grid:{unit:'in',cellSize:1,color:'#00cc88',opacity:.7,lineWeight:1},
-  corners:[{x:0,y:0},{x:0,y:0},{x:0,y:0},{x:0,y:0}],
-  cornersInit:false,
-  cornerMode:'drag',
-  floatTools:{loupe:false,snap:false,crosshair:false},
-  floatingIdx:-1,draggingIdx:-1,
-  scale:{points:[],realDist:1,ppu:80,locked:false,picking:false},
-  pattern:{
-    pdfDoc:null,page:null,pageNum:1,numPages:0,viewport:null,
-    filename:'',
-    groups:[],loadingGroups:false,
-    transform:{x:0,y:0,rotation:0,scale:1,opacity:1},
-    bgOpacity:1,bgColor:'#ffffff',
-    dragging:false,dragStartMouse:null,dragStartPos:null,
-    lineColor:'#000000',highlightColor:'#ff2222',lineWeight:1,
-    globalInvert:false,
-    refSquare:{picking:false,points:[]},
-    assembled:null,assembledW:0,assembledH:0,isTiled:false,
-    // cached transparent-bg canvases keyed by group id
-    _bgCache:new Map(),
-  },
-  assembly:{
-    cols:6,rows:7,overlapTrim:.5,
-    layout:[],         // [{pageNum, excluded}]
-    thumbs:new Map(),  // pageNum → <img>
-    thumbRenders:new Map(), // pageNum → Promise
-    thumbW:88,thumbH:116,
-    dragSrc:-1,
-    detectedSize:null,
-    extractedSizes:[],
-  },
-  cursor:{x:0,y:0},
-  globalInvert:false,
-};
-
-// ── DOM ─────────────────────────────────────────────────────────
-const E={
-  sidebar:       document.getElementById('sidebar'),
-  canvasArea:    document.getElementById('canvas-area'),
-  mainCanvas:    document.getElementById('main-canvas'),
-  loupeCanvas:   document.getElementById('loupe-canvas'),
-  minimapEl:     document.getElementById('minimap'),
-  minimapCanvas: document.getElementById('minimap-canvas'),
-  floatToolbar:  document.getElementById('float-toolbar'),
-  ftCornerName:  document.getElementById('ft-corner-name'),
-  floatModeInfo: document.getElementById('float-mode-info'),
-  sizesPanel:    document.getElementById('sizes-panel'),
-  pdfLabel:      document.getElementById('pdf-label-text'),
-  pdfLoadedBar:  document.getElementById('pdf-loaded-bar'),
-  pageNav:       document.getElementById('page-nav'),
-  pageInfo:      document.getElementById('page-info'),
-  setupInfo:     document.getElementById('setup-info'),
-  scaleHint:     document.getElementById('scale-hint'),
-  scaleDistRow:  document.getElementById('scale-dist-row'),
-  scaleActRow:   document.getElementById('scale-act-row'),
-  scaleLockedInfo:document.getElementById('scale-locked-info'),
-  scalePickRow:  document.getElementById('btn-pick-row'),
-  refSqHint:     document.getElementById('ref-sq-hint'),
-  refSqIdle:     document.getElementById('ref-sq-idle'),
-  refSqActive:   document.getElementById('ref-sq-active'),
-  refSqCtrls:    document.getElementById('ref-sq-ctrls'),
-  asmSummary:    document.getElementById('asm-summary'),
-  asmSummaryTxt: document.getElementById('asm-summary-text'),
-  boardCustom:   document.getElementById('board-custom'),
-  projCustom:    document.getElementById('proj-custom'),
-  asmCols:       document.getElementById('asm-cols'),
-  asmRows:       document.getElementById('asm-rows'),
-  asmTrim:       document.getElementById('asm-trim'),
-  asmTrimVal:    document.getElementById('asm-trim-val'),
-  asmGrid:       document.getElementById('asm-grid'),
-  asmPageInfo:   document.getElementById('asm-page-info'),
-  asmSizeInfo:   document.getElementById('asm-size-info'),
-  asmProgWrap:   document.getElementById('asm-prog-wrap'),
-  asmProgBar:    document.getElementById('asm-prog-bar'),
-  asmProgText:   document.getElementById('asm-prog-text'),
-  asmSizesHint:  document.getElementById('asm-sizes-hint'),
-  asmSizesChips: document.getElementById('asm-sizes-chips'),
-};
-
-const ctx    = E.mainCanvas.getContext('2d');
-const loupeCtx = E.loupeCanvas.getContext('2d');
-const mmCtx  = E.minimapCanvas.getContext('2d');
-
-// ── UTILS ────────────────────────────────────────────────────────
-const dist=(a,b)=>Math.hypot(b.x-a.x,b.y-a.y);
-const clamp=(v,lo,hi)=>Math.max(lo,Math.min(hi,v));
-const lerp=(a,b,t)=>a+(b-a)*t;
-const invertHex=hex=>'#'+(0xFFFFFF^parseInt(hex.slice(1),16)).toString(16).padStart(6,'0');
-function hexToRgb(hex){const n=parseInt(hex.slice(1),16);return[(n>>16)&255,(n>>8)&255,n&255];}
-
-function bilinear(u,v){
-  const[TL,TR,BR,BL]=S.corners;
-  return{
-    x:(1-u)*(1-v)*TL.x+u*(1-v)*TR.x+u*v*BR.x+(1-u)*v*BL.x,
-    y:(1-u)*(1-v)*TL.y+u*(1-v)*TR.y+u*v*BR.y+(1-u)*v*BL.y,
-  };
-}
-
-// ── CANVAS / RESIZE ───────────────────────────────────────────────
-function setupCanvas(){
-  S.dpr=window.devicePixelRatio||1;
-  const r=E.canvasArea.getBoundingClientRect();
-  S.canvasW=r.width; S.canvasH=r.height;
-  E.mainCanvas.width=Math.floor(r.width*S.dpr);
-  E.mainCanvas.height=Math.floor(r.height*S.dpr);
-  E.mainCanvas.style.width=r.width+'px';
-  E.mainCanvas.style.height=r.height+'px';
-  ctx.setTransform(S.dpr,0,0,S.dpr,0,0);
-  if(!S.cornersInit){initCorners();S.cornersInit=true;}
-}
-function initCorners(){
-  const pad=Math.min(S.canvasW,S.canvasH)*.1;
-  S.corners=[{x:pad,y:pad},{x:S.canvasW-pad,y:pad},{x:S.canvasW-pad,y:S.canvasH-pad},{x:pad,y:S.canvasH-pad}];
-}
-window.addEventListener('resize',()=>{
-  const ox=S.canvasW,oy=S.canvasH,had=S.cornersInit;
-  S.cornersInit=false; setupCanvas();
-  if(had&&ox>0){const sx=S.canvasW/ox,sy=S.canvasH/oy;S.corners.forEach(c=>{c.x*=sx;c.y*=sy;});}
-});
-
-// ── PAGE SIZE DETECTION ───────────────────────────────────────────
-function detectPageSize(wPts,hPts){
-  const t=8;
-  for(const s of PAGE_SIZES){
-    const pw=Math.min(wPts,hPts),ph=Math.max(wPts,hPts);
-    if(Math.abs(pw-s.w)<t&&Math.abs(ph-s.h)<t)
-      return{name:s.name,landscape:wPts>hPts,wIn:(wPts/72).toFixed(2),hIn:(hPts/72).toFixed(2)};
-  }
-  return{name:'Custom',landscape:wPts>hPts,wIn:(wPts/72).toFixed(2),hIn:(hPts/72).toFixed(2)};
-}
-
-// ── BOARD / PROJECTOR ─────────────────────────────────────────────
-function populatePresets(){
-  const bp=document.getElementById('board-preset');
-  BOARD_PRESETS.forEach((p,i)=>{const o=document.createElement('option');o.value=i;o.textContent=p.label;bp.appendChild(o);});
-  bp.value=3;
-  const pp=document.getElementById('proj-preset');
-  PROJ_PRESETS.forEach((p,i)=>{const o=document.createElement('option');o.value=i;o.textContent=p.label;pp.appendChild(o);});
-  pp.value=0;
-}
-function onBoardPresetChange(){
-  const idx=parseInt(document.getElementById('board-preset').value);
-  const p=BOARD_PRESETS[idx];
-  E.boardCustom.classList.toggle('hidden',p.w!==0);
-  if(p.w>0){S.board.w=p.w;S.board.h=p.h;S.board.unit=p.unit;
-    document.getElementById('board-w').value=p.w;document.getElementById('board-h').value=p.h;}
-  updateSetupInfo();
-}
-function onProjPresetChange(){
-  const idx=parseInt(document.getElementById('proj-preset').value);
-  const p=PROJ_PRESETS[idx];
-  E.projCustom.classList.toggle('hidden',!(p.label==='Custom…'));
-  S.projector.w=p.w||S.canvasW; S.projector.h=p.h||S.canvasH;
-  updateSetupInfo();
-}
-function updateSetupInfo(){
-  const bw=parseFloat(document.getElementById('board-w').value)||S.board.w;
-  const bh=parseFloat(document.getElementById('board-h').value)||S.board.h;
-  const pw=S.projector.w||S.canvasW, ph=S.projector.h||S.canvasH;
-  const ppu=Math.min(pw/bw,ph/bh).toFixed(1);
-  E.setupInfo.textContent=`${pw}×${ph}px ÷ ${bw}×${bh}${S.board.unit} → ${ppu} px/${S.board.unit}`;
-}
-function applyBoardSetup(){
-  S.board.w=parseFloat(document.getElementById('board-w').value)||S.board.w;
-  S.board.h=parseFloat(document.getElementById('board-h').value)||S.board.h;
-  const pw=S.projector.w||S.canvasW, ph=S.projector.h||S.canvasH;
-  S.scale.ppu=Math.min(pw/S.board.w,ph/S.board.h);
-  const bpxW=S.board.w*S.scale.ppu, bpxH=S.board.h*S.scale.ppu;
-  const ox=(S.canvasW-bpxW)/2, oy=(S.canvasH-bpxH)/2;
-  S.corners=[{x:ox,y:oy},{x:ox+bpxW,y:oy},{x:ox+bpxW,y:oy+bpxH},{x:ox,y:oy+bpxH}];
-  S.cornersInit=true;
-  updateSetupInfo(); saveState();
-}
-
-// ── GRID ──────────────────────────────────────────────────────────
-function getGridDims(){
-  const[TL,TR,BR,BL]=S.corners;
-  const avgW=(dist(TL,TR)+dist(BL,BR))/2, avgH=(dist(TL,BL)+dist(TR,BR))/2;
-  return{nCols:Math.max(2,Math.ceil(avgW/S.scale.ppu/S.grid.cellSize)),
-         nRows:Math.max(2,Math.ceil(avgH/S.scale.ppu/S.grid.cellSize))};
-}
-function drawGrid(){
-  const{color,opacity,lineWeight}=S.grid;
-  const[TL,TR,BR,BL]=S.corners;
-  const{nCols,nRows}=getGridDims();
-  ctx.save();ctx.globalAlpha=opacity;
-  ctx.strokeStyle=S.globalInvert?invertHex(color):color;
-  ctx.lineWidth=lineWeight;ctx.lineCap='round';
-  for(let r=0;r<=nRows;r++){const v=r/nRows;ctx.beginPath();ctx.moveTo(lerp(TL.x,BL.x,v),lerp(TL.y,BL.y,v));ctx.lineTo(lerp(TR.x,BR.x,v),lerp(TR.y,BR.y,v));ctx.stroke();}
-  for(let c=0;c<=nCols;c++){const u=c/nCols;ctx.beginPath();ctx.moveTo(lerp(TL.x,TR.x,u),lerp(TL.y,TR.y,u));ctx.lineTo(lerp(BL.x,BR.x,u),lerp(BL.y,BR.y,u));ctx.stroke();}
-  ctx.restore();
-}
-
-// ── CORNERS ───────────────────────────────────────────────────────
-function drawCorners(){
-  for(let i=0;i<4;i++){
-    const c=S.corners[i],col=CORNER_COLORS[i];
-    const fl=S.floatingIdx===i,dr=S.draggingIdx===i;
-    ctx.save();
-    if(fl){ctx.strokeStyle=col;ctx.lineWidth=2;ctx.setLineDash([4,3]);ctx.beginPath();ctx.arc(c.x,c.y,CHR+5,0,Math.PI*2);ctx.stroke();ctx.setLineDash([]);}
-    ctx.globalAlpha=fl||dr?.9:.75;ctx.fillStyle=col;ctx.beginPath();ctx.arc(c.x,c.y,CHR,0,Math.PI*2);ctx.fill();
-    ctx.globalAlpha=1;ctx.fillStyle='#000';ctx.font='bold 8px sans-serif';ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText(CORNER_NAMES[i],c.x,c.y);
-    ctx.restore();
-  }
-}
-function hitCorner(x,y){for(let i=0;i<4;i++)if(dist({x,y},S.corners[i])<=CHR+5)return i;return -1;}
-
-// ── OVERLAYS ──────────────────────────────────────────────────────
-function drawScaleRef(){
-  const pts=S.scale.points;if(!pts.length)return;
-  ctx.save();ctx.strokeStyle='#ffb347';ctx.fillStyle='#ffb347';ctx.lineWidth=1.5;ctx.setLineDash([4,3]);
-  pts.forEach(p=>{ctx.beginPath();ctx.arc(p.x,p.y,5,0,Math.PI*2);ctx.fill();});
-  if(pts.length===2){
-    ctx.beginPath();ctx.moveTo(pts[0].x,pts[0].y);ctx.lineTo(pts[1].x,pts[1].y);ctx.stroke();
-    ctx.setLineDash([]);ctx.font='11px sans-serif';ctx.textAlign='center';ctx.textBaseline='bottom';
-    ctx.fillText(`${S.scale.realDist} ${S.grid.unit}`,(pts[0].x+pts[1].x)/2,(pts[0].y+pts[1].y)/2-6);
-  }
-  ctx.setLineDash([]);ctx.restore();
-}
-function drawRefSquare(){
-  const pts=S.pattern.refSquare.points;if(!pts.length)return;
-  ctx.save();ctx.strokeStyle='#cc44ff';ctx.fillStyle='#cc44ff';ctx.lineWidth=1.5;ctx.setLineDash([4,3]);
-  pts.forEach(p=>{ctx.beginPath();ctx.arc(p.x,p.y,5,0,Math.PI*2);ctx.fill();});
-  if(pts.length===2){const[a,b]=pts;ctx.beginPath();ctx.rect(Math.min(a.x,b.x),Math.min(a.y,b.y),Math.abs(b.x-a.x),Math.abs(b.y-a.y));ctx.stroke();}
-  ctx.setLineDash([]);ctx.restore();
-}
-function drawCrosshair(){
-  if(!S.floatTools.crosshair||S.floatingIdx===-1)return;
-  const{x,y}=S.cursor;
-  ctx.save();ctx.strokeStyle='rgba(255,255,255,.4)';ctx.lineWidth=1;ctx.setLineDash([6,4]);
-  ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(S.canvasW,y);ctx.stroke();
-  ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,S.canvasH);ctx.stroke();
-  ctx.setLineDash([]);ctx.restore();
-}
-
-// ── LOUPE ─────────────────────────────────────────────────────────
-let _loupeBuffer=null;
-function drawLoupe(){
-  if(!S.floatTools.loupe||S.floatingIdx===-1){E.loupeCanvas.style.display='none';return;}
-  E.loupeCanvas.style.display='block';
-  if(!_loupeBuffer)return;
-  const ZOOM=4,LW=180,LH=180,srcW=LW/ZOOM,srcH=LH/ZOOM;
-  const{x,y}=S.cursor;
-  const sx=clamp(x-srcW/2,0,Math.max(0,S.canvasW-srcW));
-  const sy=clamp(y-srcH/2,0,Math.max(0,S.canvasH-srcH));
-  loupeCtx.clearRect(0,0,LW,LH);loupeCtx.fillStyle='#000';loupeCtx.fillRect(0,0,LW,LH);
-  loupeCtx.drawImage(_loupeBuffer,sx*S.dpr,sy*S.dpr,srcW*S.dpr,srcH*S.dpr,0,0,LW,LH);
-  loupeCtx.strokeStyle='rgba(255,80,80,.8)';loupeCtx.lineWidth=1;
-  loupeCtx.beginPath();loupeCtx.moveTo(LW/2,0);loupeCtx.lineTo(LW/2,LH);loupeCtx.moveTo(0,LH/2);loupeCtx.lineTo(LW,LH/2);loupeCtx.stroke();
-}
-
-// ── MINIMAP ───────────────────────────────────────────────────────
-function drawMinimap(){
-  const pat=S.pattern;
-  const src=pat.assembled||pat.groups[0]?.canvas;
-  const show=S.appMode==='pattern'&&src&&!S.projectMode;
-  E.minimapEl.style.display=show?'block':'none';
-  if(!show)return;
-  const srcW=pat.assembled?pat.assembledW:(pat.viewport?.width??800);
-  const srcH=pat.assembled?pat.assembledH:(pat.viewport?.height??1000);
-  const MM=156,sc=Math.min(MM/srcW,MM/srcH);
-  const mw=Math.round(srcW*sc),mh=Math.round(srcH*sc);
-  E.minimapCanvas.width=mw;E.minimapCanvas.height=mh;
-  E.minimapEl.style.height=mh+'px';
-  mmCtx.clearRect(0,0,mw,mh);mmCtx.fillStyle='#222';mmCtx.fillRect(0,0,mw,mh);
-  if(pat.assembled)mmCtx.drawImage(pat.assembled,0,0,mw,mh);
-  else if(pat.groups[0]?.canvas)mmCtx.drawImage(pat.groups[0].canvas,0,0,mw,mh);
-  const{x,y,scale}=pat.transform;
-  mmCtx.strokeStyle='rgba(79,163,255,.9)';mmCtx.lineWidth=1.5;
-  mmCtx.strokeRect(-x/scale*sc,-y/scale*sc,S.canvasW/scale*sc,S.canvasH/scale*sc);
-}
-
-// ── BACKGROUND TRANSPARENCY ───────────────────────────────────────
-function removeWhiteBg(canvas){
-  const c=canvas.getContext('2d');
-  const id=c.getImageData(0,0,canvas.width,canvas.height);
-  const d=id.data;
-  for(let i=0;i<d.length;i+=4){
-    if(d[i]>238&&d[i+1]>238&&d[i+2]>238) d[i+3]=0;
-  }
-  c.putImageData(id,0,0);
-}
-
-// ── PDF LOADING ───────────────────────────────────────────────────
-async function loadPDF(file){
-  try{
-    E.pdfLabel.textContent='Loading…';
-    const buf=await file.arrayBuffer();
-    S.pattern.pdfDoc=await pdfjsLib.getDocument({data:buf}).promise;
-    S.pattern.numPages=S.pattern.pdfDoc.numPages;
-    S.pattern.pageNum=1;
-    S.pattern.filename=file.name;
-    E.pdfLabel.textContent=file.name;
-    E.pdfLoadedBar.classList.remove('hidden');
-    E.pdfLoadedBar.style.display='flex';
-
-    if(S.pattern.numPages>1){
-      await initAssembly();
-    } else {
-      E.pageNav.classList.remove('hidden');
-      await renderPDFPage();
-    }
-  }catch(err){console.error(err);E.pdfLabel.textContent='Error loading PDF';}
-}
-
-function unloadPDF(){
-  S.pattern.pdfDoc=null; S.pattern.page=null; S.pattern.pageNum=1; S.pattern.numPages=0;
-  S.pattern.viewport=null; S.pattern.groups=[]; S.pattern.assembled=null;
-  S.pattern.assembledW=0; S.pattern.assembledH=0; S.pattern.isTiled=false;
-  S.pattern.filename=''; S.pattern._bgCache.clear();
-  S.assembly.thumbs.clear(); S.assembly.thumbRenders.clear(); S.assembly.layout=[];
-  E.pdfLabel.textContent='Drop PDF or click to upload';
-  E.pdfLoadedBar.style.display='none'; E.pdfLoadedBar.classList.add('hidden');
-  E.pageNav.classList.add('hidden');
-  E.asmSummary.classList.add('hidden');
-  E.sizesPanel.innerHTML='<div class="hint">Load a PDF to detect size lines.</div>';
-  saveState();
-}
-
-async function renderPDFPage(){
-  if(!S.pattern.pdfDoc)return;
-  E.pageInfo.textContent=`${S.pattern.pageNum} / ${S.pattern.numPages}`;
-  S.pattern.page=await S.pattern.pdfDoc.getPage(S.pattern.pageNum);
-  const sc=S.scale.ppu/72;
-  S.pattern.viewport=S.pattern.page.getViewport({scale:sc});
-  S.pattern.assembled=null; S.pattern.isTiled=false;
-  S.pattern._bgCache.clear();
-  await analyzeDashes(S.pattern.page);
-  await renderAllGroups();
-  centerPattern();
-}
-
-// ── TEXT & SIZE EXTRACTION ────────────────────────────────────────
-async function extractSizeLabels(page){
-  try{
-    const content=await page.getTextContent();
-    const text=content.items.map(i=>i.str).join(' ');
-
-    // Find range like "Sizes 34 to 52" or "Size 6-20"
-    const rangeMatch=text.match(/size[s]?\s*[:\-]?\s*(\d+)\s+(?:to|thru|-|–)\s+(\d+)/i);
-    if(rangeMatch){
-      const a=parseInt(rangeMatch[1]),b=parseInt(rangeMatch[2]);
-      const step=(b-a)<=20?2:4;
-      const sizes=[];
-      for(let s=a;s<=b;s+=step) sizes.push(String(s));
-      return sizes;
-    }
-    // Find sequences like "34 36 38 40"
-    const nums=[...text.matchAll(/\b(3[0-9]|4[0-9]|5[0-9]|6[0-9])\b/g)].map(m=>m[1]);
-    const unique=[...new Set(nums)].slice(0,20);
-    if(unique.length>=3) return unique;
-
-    // Clothing sizes
-    const cloth=[...text.matchAll(/\b(XS|S|M|L|XL|XXL|XXXL|2XL|3XL)\b/gi)].map(m=>m[1].toUpperCase());
-    return [...new Set(cloth)].slice(0,15);
-  }catch(e){return[];}
-}
-
-// ── ASSEMBLY INIT ─────────────────────────────────────────────────
-async function initAssembly(){
-  const n=S.pattern.numPages;
-
-  // Detect page size from page 1
-  const p1=await S.pattern.pdfDoc.getPage(1);
-  const vp1=p1.getViewport({scale:1});
-  S.assembly.detectedSize=detectPageSize(vp1.width,vp1.height);
-
-  // Extract sizes from first few pages
-  S.assembly.extractedSizes=[];
-  for(let pn=1;pn<=Math.min(3,n)&&S.assembly.extractedSizes.length===0;pn++){
-    const pg=await S.pattern.pdfDoc.getPage(pn);
-    S.assembly.extractedSizes=await extractSizeLabels(pg);
-  }
-
-  // Default layout: all included
-  S.assembly.layout=Array.from({length:n},(_,i)=>({pageNum:i+1,excluded:false}));
-
-  // Auto-guess grid: sqrt heuristic
-  const sq=Math.sqrt(n);
-  let bestCols=Math.round(sq);
-  // Prefer factor
-  for(let c=1;c<=n;c++) if(n%c===0&&Math.abs(c-sq)<Math.abs(bestCols-sq)) bestCols=c;
-  S.assembly.cols=bestCols;
-  S.assembly.rows=Math.ceil(n/bestCols);
-
-  // Populate modal
-  const ds=S.assembly.detectedSize;
-  document.getElementById('asm-title').textContent=`Pattern Assembly — ${S.pattern.filename}`;
-  document.getElementById('asm-meta').textContent=
-    `${n} pages · ${ds.name}${ds.landscape?' Landscape':''} (${ds.wIn}" × ${ds.hIn}")`;
-  E.asmCols.value=S.assembly.cols;
-  E.asmRows.value=S.assembly.rows;
-  E.asmTrim.value=S.assembly.overlapTrim;
-  E.asmTrimVal.textContent=S.assembly.overlapTrim.toFixed(2)+'"';
-
-  // Show extracted sizes as chips
-  if(S.assembly.extractedSizes.length){
-    E.asmSizesHint.textContent='Detected sizes (click to apply to groups):';
-    E.asmSizesChips.innerHTML='';
-    S.assembly.extractedSizes.forEach(sz=>{
-      const ch=document.createElement('span');ch.className='chip';ch.textContent=sz;
-      ch.addEventListener('click',()=>applyExtractedSizes());
-      E.asmSizesChips.appendChild(ch);
-    });
-  } else {
-    E.asmSizesHint.textContent='No size info detected in first pages.';
-  }
-
-  document.getElementById('modal-assembly').classList.remove('hidden');
-  buildAsmGrid();
-  // Start rendering thumbs in background
-  renderAllThumbs();
-}
-
-function buildAsmGrid(){
-  const cols=parseInt(E.asmCols.value)||6;
-  const rows=parseInt(E.asmRows.value)||7;
-  S.assembly.cols=cols; S.assembly.rows=rows;
-  E.asmGrid.innerHTML='';
-  E.asmGrid.style.gridTemplateColumns=`repeat(${cols},${S.assembly.thumbW}px)`;
-
-  const layout=S.assembly.layout;
-  const included=layout.filter(l=>!l.excluded);
-  let tileIdx=0;
-
-  for(let r=0;r<rows;r++){
-    for(let c=0;c<cols;c++){
-      const item=included[tileIdx];
-      const slot=document.createElement('div');
-      slot.className='asm-slot'+(item?'':' empty');
-      slot.style.cssText=`width:${S.assembly.thumbW}px;height:${S.assembly.thumbH}px`;
-
-      if(item){
-        slot.dataset.pageNum=item.pageNum;
-        slot.dataset.tileIdx=tileIdx;
-
-        // Thumbnail image
-        if(S.assembly.thumbs.has(item.pageNum)){
-          const img=S.assembly.thumbs.get(item.pageNum).cloneNode();
-          img.style.cssText='display:block;width:100%;height:100%;object-fit:contain;background:#fff';
-          slot.appendChild(img);
-        } else {
-          slot.classList.add('loading');
-          slot.textContent='…';
-          // Thumb will be injected when ready (see renderAllThumbs)
-        }
-
-        // Tile position number
-        const tileNum=document.createElement('span');
-        tileNum.className='asm-tile-num';tileNum.textContent=tileIdx+1;
-        slot.appendChild(tileNum);
-        // Page number (small)
-        const pgNum=document.createElement('span');
-        pgNum.className='asm-pg-num';pgNum.textContent='p'+item.pageNum;
-        slot.appendChild(pgNum);
-
-        // Toggle button (include/exclude)
-        const tog=document.createElement('button');
-        tog.className='asm-toggle';tog.textContent='✓';tog.title='Click to exclude';
-        tog.addEventListener('click',e=>{
-          e.stopPropagation();
-          item.excluded=true;
-          buildAsmGrid();updateAsmInfo();
-        });
-        slot.appendChild(tog);
-
-        // Drag to reorder
-        slot.draggable=true;
-        slot.addEventListener('dragstart',e=>{
-          S.assembly.dragSrc=tileIdx; slot.classList.add('drag-src');
-          e.dataTransfer.effectAllowed='move';
-        });
-        slot.addEventListener('dragend',()=>slot.classList.remove('drag-src'));
-        slot.addEventListener('dragover',e=>{e.preventDefault();slot.classList.add('drag-over');});
-        slot.addEventListener('dragleave',()=>slot.classList.remove('drag-over'));
-        slot.addEventListener('drop',e=>{
-          e.preventDefault();slot.classList.remove('drag-over');
-          const src=S.assembly.dragSrc,dst=tileIdx;
-          if(src===dst||src<0)return;
-          const inc=S.assembly.layout.filter(l=>!l.excluded);
-          [inc[src],inc[dst]]=[inc[dst],inc[src]];
-          let ii=0;S.assembly.layout=S.assembly.layout.map(l=>l.excluded?l:inc[ii++]);
-          buildAsmGrid();
-        });
-
-        tileIdx++;
-      } else {
-        slot.style.background='#1a1a1a';
-        slot.style.border='1px dashed #2a2a2a';
-      }
-      E.asmGrid.appendChild(slot);
-    }
-  }
-
-  // Excluded pages shown as a second row below the grid (re-includable)
-  const excl=layout.filter(l=>l.excluded);
-  if(excl.length){
-    const sep=document.createElement('div');
-    sep.style.cssText='grid-column:1/-1;padding:6px 2px 2px;font-size:10px;color:var(--tx-mut);text-transform:uppercase;letter-spacing:.5px';
-    sep.textContent='Excluded (click ↩ to restore):';
-    E.asmGrid.appendChild(sep);
-    excl.forEach(item=>{
-      const slot=document.createElement('div');
-      slot.className='asm-slot excl';
-      slot.style.cssText=`width:${S.assembly.thumbW}px;height:${S.assembly.thumbH}px`;
-
-      if(S.assembly.thumbs.has(item.pageNum)){
-        const img=S.assembly.thumbs.get(item.pageNum).cloneNode();
-        img.style.cssText='display:block;width:100%;height:100%;object-fit:contain;background:#fff';
-        slot.appendChild(img);
-      } else {
-        slot.classList.add('loading'); slot.textContent='…';
-      }
-      const pgNum=document.createElement('span');pgNum.className='asm-pg-num';pgNum.textContent='p'+item.pageNum;slot.appendChild(pgNum);
-      const tog=document.createElement('button');
-      tog.className='asm-toggle';tog.textContent='↩';tog.title='Click to include';
-      tog.style.background='rgba(68,217,136,.4)';
-      tog.addEventListener('click',e=>{
-        e.stopPropagation();item.excluded=false;buildAsmGrid();updateAsmInfo();
-      });
-      slot.appendChild(tog);
-      E.asmGrid.appendChild(slot);
-    });
-  }
-
-  updateAsmInfo();
-}
-
-async function renderAllThumbs(){
-  for(const item of S.assembly.layout){
-    const pn=item.pageNum;
-    if(S.assembly.thumbs.has(pn)) continue;
-    if(S.assembly.thumbRenders.has(pn)) continue;
-    const p=renderThumb(pn);
-    S.assembly.thumbRenders.set(pn,p);
-    const img=await p;
-    S.assembly.thumbs.set(pn,img);
-    // Inject into any matching slot
-    document.querySelectorAll(`.asm-slot[data-page-num="${pn}"]`).forEach(slot=>{
-      if(slot.classList.contains('loading')||slot.classList.contains('excl')||!slot.querySelector('img')){
-        slot.classList.remove('loading');
-        // Remove text placeholder
-        slot.childNodes.forEach(n=>{if(n.nodeType===3)n.remove();});
-        // Insert img at front
-        const imgEl=img.cloneNode();
-        imgEl.style.cssText='display:block;width:100%;height:100%;object-fit:contain;background:#fff';
-        slot.insertBefore(imgEl,slot.firstChild);
-      }
-    });
-  }
-}
-
-async function renderThumb(pageNum){
-  const page=await S.pattern.pdfDoc.getPage(pageNum);
-  const vp1=page.getViewport({scale:1});
-  const scale=S.assembly.thumbW/vp1.width;
-  const vp=page.getViewport({scale});
-  const c=document.createElement('canvas');
-  c.width=Math.ceil(vp.width); c.height=Math.ceil(vp.height);
-  const rc=c.getContext('2d');
-  rc.fillStyle='#ffffff'; rc.fillRect(0,0,c.width,c.height);
-  await page.render({canvasContext:rc,viewport:vp}).promise;
-  // Convert to img element so cloneNode copies the image
-  const img=new Image();
-  img.src=c.toDataURL('image/jpeg',.75);
-  img.width=Math.ceil(vp.width); img.height=Math.ceil(vp.height);
-  return img;
-}
-
-function updateAsmInfo(){
-  const inc=S.assembly.layout.filter(l=>!l.excluded);
-  const excl=S.assembly.layout.filter(l=>l.excluded);
-  E.asmPageInfo.textContent=`${inc.length} included, ${excl.length} excluded (${S.assembly.layout.length} total)`;
-  updateAsmSizeInfo();
-}
-
-function updateAsmSizeInfo(){
-  const cols=parseInt(E.asmCols.value)||6;
-  const rows=parseInt(E.asmRows.value)||7;
-  const trim=parseFloat(E.asmTrim.value)||0;
-  const ds=S.assembly.detectedSize;
-  if(!ds){E.asmSizeInfo.textContent='';return;}
-  const pw=parseFloat(ds.wIn), ph=parseFloat(ds.hIn);
-  const cellW=pw-trim*2, cellH=ph-trim*2;
-  const totalW=(cellW*cols+trim*2).toFixed(1);
-  const totalH=(cellH*rows+trim*2).toFixed(1);
-  E.asmSizeInfo.textContent=`Assembled: ≈${totalW}" × ${totalH}"`;
-}
-
-// ── ASSEMBLE ──────────────────────────────────────────────────────
-async function assemblePattern(){
-  const cols=parseInt(E.asmCols.value)||6;
-  const rows=parseInt(E.asmRows.value)||7;
-  const trim=S.assembly.overlapTrim;
-  const included=S.assembly.layout.filter(l=>!l.excluded);
-  if(!included.length){alert('No pages included.');return;}
-
-  const firstPage=await S.pattern.pdfDoc.getPage(included[0].pageNum);
-  const sc=S.scale.ppu/72;
-  const vp=firstPage.getViewport({scale:sc});
-  S.pattern.viewport=vp;
-
-  const pageW=vp.width,pageH=vp.height;
-  const trimPx=trim*S.scale.ppu;
-  const cellW=pageW-trimPx*2,cellH=pageH-trimPx*2;
-  const totalW=Math.ceil(cellW*cols+trimPx*2);
-  const totalH=Math.ceil(cellH*rows+trimPx*2);
-
-  const assembled=document.createElement('canvas');
-  assembled.width=totalW; assembled.height=totalH;
-  const aCtx=assembled.getContext('2d');
-  aCtx.fillStyle='#fff'; aCtx.fillRect(0,0,totalW,totalH);
-
-  E.asmProgWrap.classList.remove('hidden');
-  const total=Math.min(included.length,cols*rows);
-
-  for(let i=0;i<total;i++){
-    const item=included[i];
-    const col=i%cols,row=Math.floor(i/cols);
-    E.asmProgText.textContent=`Rendering page ${item.pageNum} (${i+1}/${total})…`;
-    E.asmProgBar.style.width=((i+1)/total*100)+'%';
-
-    const page=await S.pattern.pdfDoc.getPage(item.pageNum);
-    const pvp=page.getViewport({scale:sc});
-    const pc=document.createElement('canvas');
-    pc.width=Math.ceil(pvp.width);pc.height=Math.ceil(pvp.height);
-    const prc=pc.getContext('2d');
-    prc.fillStyle='#fff';prc.fillRect(0,0,pc.width,pc.height);
-    await page.render({canvasContext:prc,viewport:pvp}).promise;
-
-    const dx=col*cellW+trimPx,dy=row*cellH+trimPx;
-    aCtx.drawImage(pc,trimPx,trimPx,cellW,cellH,dx,dy,cellW,cellH);
-  }
-
-  S.pattern.assembled=assembled;
-  S.pattern.assembledW=totalW;
-  S.pattern.assembledH=totalH;
-  S.pattern.isTiled=true;
-
-  // Analyze dashes from first tile page and render group canvases for assembled
-  await analyzeDashes(firstPage);
-  await renderAllGroupsAssembled(cols,rows,included,sc,cellW,cellH,trimPx,totalW,totalH);
-
-  centerPattern();
-  E.asmSummary.classList.remove('hidden');
-  E.asmSummaryTxt.textContent=
-    `${cols}×${rows} grid · ${included.length} pages · ≈${(totalW/S.scale.ppu).toFixed(1)}"×${(totalH/S.scale.ppu).toFixed(1)}"`;
-  E.pageNav.classList.add('hidden');
-  document.getElementById('modal-assembly').classList.add('hidden');
-  E.asmProgWrap.classList.add('hidden');
-}
-
-async function renderAllGroupsAssembled(cols,rows,included,sc,cellW,cellH,trimPx,totalW,totalH){
-  for(const group of S.pattern.groups){
-    const ac=document.createElement('canvas');
-    ac.width=totalW; ac.height=totalH;
-    const aCtx=ac.getContext('2d');
-
-    for(let i=0;i<Math.min(included.length,cols*rows);i++){
-      const item=included[i];
-      const col=i%cols,row=Math.floor(i/cols);
-      const page=await S.pattern.pdfDoc.getPage(item.pageNum);
-      const pvp=page.getViewport({scale:sc});
-      const pc=document.createElement('canvas');
-      pc.width=Math.ceil(pvp.width);pc.height=Math.ceil(pvp.height);
-      const proxy=createDashFilterProxy(pc.getContext('2d'),group);
-      await page.render({canvasContext:proxy,viewport:pvp}).promise;
-      removeWhiteBg(pc);
-      const dx=col*cellW+trimPx,dy=row*cellH+trimPx;
-      aCtx.drawImage(pc,trimPx,trimPx,cellW,cellH,dx,dy,cellW,cellH);
-    }
-    group.canvas=ac;
-  }
-}
-
-// ── DASH ANALYSIS ────────────────────────────────────────────────
-async function analyzeDashes(page){
-  const ops=await page.getOperatorList();
-  const{fnArray,argsArray}=ops;
-  const OPS=pdfjsLib.OPS;
-  const map=new Map();
-  let curDash=[];
-  for(let i=0;i<fnArray.length;i++){
-    if(fnArray[i]===OPS.setDash) curDash=argsArray[i][0]?Array.from(argsArray[i][0]):[];
-    else if(fnArray[i]===OPS.stroke||fnArray[i]===OPS.fillStroke||fnArray[i]===OPS.eoFillStroke){
-      const k=normDashKey(curDash);
-      if(!map.has(k)) map.set(k,{dash:[...curDash],n:0});
-      map.get(k).n++;
-    }
-  }
-  S.pattern.groups=[];
-  let idx=0;
-  for(const[key,val] of map){
-    if(!val.n) continue;
-    // Pre-assign extracted size labels if available
-    const sz=S.assembly.extractedSizes[idx]??null;
-    S.pattern.groups.push({
-      id:idx,dashKey:key,dash:val.dash,
-      label:sz?`Size ${sz}`:dashLabel(val.dash),
-      vis:'show',canvas:null,
-      color:GROUP_COLORS[idx%GROUP_COLORS.length],
-      active:idx===0,invert:false,
-    });
-    idx++;
-  }
-  buildSizesPanel();
-}
-
-const normDashKey=d=>(!d||!d.length)?'[]':JSON.stringify(d.map(Number));
-function dashLabel(d){
-  if(!d||!d.length) return'Solid';
-  if(d.length===2){const[on,off]=d;if(on<=1)return'Dotted';if(on===off)return`Dash(${on})`;return on>off?'Long Dash':'Short Dash';}
-  if(d.length===4) return'Dash-Dot';
-  return`Pattern(${d.join(',')})`;
-}
-
-function applyExtractedSizes(){
-  const sizes=S.assembly.extractedSizes;
-  S.pattern.groups.forEach((g,i)=>{if(sizes[i])g.label=`Size ${sizes[i]}`;});
-  updateSizesPanel();
-}
-
-// ── DASH FILTER PROXY ────────────────────────────────────────────
-function createDashFilterProxy(realCtx,group){
-  const targetKey=group.dashKey;
-  let curKey='[]';
-  const stack=['[]'];
-  return new Proxy(realCtx,{
-    get(t,p){
-      if(typeof p!=='string') return Reflect.get(t,p);
-      if(p==='save') return()=>{stack.push(curKey);t.save();};
-      if(p==='restore') return()=>{curKey=stack.pop()??'[]';t.restore();};
-      if(p==='setLineDash') return(d)=>{curKey=normDashKey(d);t.setLineDash(d);};
-      if(p==='stroke') return()=>{
-        if(curKey===targetKey){
-          const ov=group.active?S.pattern.highlightColor:group.color;
-          const prev=t.strokeStyle;t.strokeStyle=ov;t.stroke();t.strokeStyle=prev;
-        }
-      };
-      if(p==='fill') return(...a)=>t.fill(...a);
-      const v=t[p]; return typeof v==='function'?v.bind(t):v;
-    },
-    set(t,p,v){t[p]=v;return true;},
-  });
-}
-
-// ── GROUP RENDERING ───────────────────────────────────────────────
-async function renderAllGroups(){
-  if(!S.pattern.page||!S.pattern.viewport)return;
-  S.pattern._bgCache.clear();
-  S.pattern.loadingGroups=true;
-  for(const g of S.pattern.groups) g.canvas=await renderSingleGroup(g);
-  S.pattern.loadingGroups=false;
-  updateSizesPanel();
-}
-
-async function renderSingleGroup(group){
-  const vp=S.pattern.viewport;
-  const c=document.createElement('canvas');
-  c.width=Math.ceil(vp.width);c.height=Math.ceil(vp.height);
-  const rc=c.getContext('2d');
-  rc.clearRect(0,0,c.width,c.height);
-  const proxy=createDashFilterProxy(rc,group);
-  try{await S.pattern.page.render({canvasContext:proxy,viewport:vp}).promise;}catch(e){}
-  removeWhiteBg(c);
-  return c;
-}
-
-// ── PATTERN DRAWING ───────────────────────────────────────────────
-function drawPattern(){
-  if(!S.pattern.groups.length)return;
-  const{x,y,rotation,scale,opacity}=S.pattern.transform;
-  const bgOp=S.pattern.bgOpacity;
-  const vp=S.pattern.assembled?
-    {width:S.pattern.assembledW,height:S.pattern.assembledH}:
-    S.pattern.viewport;
-  if(!vp)return;
-
-  ctx.save();
-  ctx.translate(x,y);ctx.rotate(rotation*Math.PI/180);ctx.scale(scale,scale);
-
-  // Draw background fill beneath lines
-  if(bgOp>0){
-    ctx.globalAlpha=opacity*bgOp;
-    ctx.fillStyle=S.pattern.bgColor;
-    ctx.fillRect(0,0,vp.width,vp.height);
-  }
-
-  // Non-active groups
-  for(const g of S.pattern.groups){
-    if(g.active||g.vis==='hide'||!g.canvas)continue;
-    ctx.globalAlpha=opacity*(g.vis==='ghost'?.2:1);
-    if(S.globalInvert!==g.invert) ctx.filter='invert(100%)';
-    ctx.drawImage(g.canvas,0,0);ctx.filter='none';
-  }
-  // Active group on top
-  for(const g of S.pattern.groups){
-    if(!g.active||g.vis==='hide'||!g.canvas)continue;
-    ctx.globalAlpha=opacity*(g.vis==='ghost'?.2:1);
-    if(S.globalInvert!==g.invert) ctx.filter='invert(100%)';
-    ctx.drawImage(g.canvas,0,0);ctx.filter='none';
-  }
-  ctx.restore();
-}
-
-// ── SIZES PANEL ───────────────────────────────────────────────────
-function buildSizesPanel(){E.sizesPanel.innerHTML='';updateSizesPanel();}
-function updateSizesPanel(){
-  if(!S.pattern.groups.length){E.sizesPanel.innerHTML='<div class="hint">No distinct line styles detected.</div>';return;}
-  E.sizesPanel.innerHTML='';
-  for(const g of S.pattern.groups){
-    const entry=document.createElement('div');entry.className='size-entry';
-    const sw=document.createElement('canvas');sw.className='dash-sw';sw.width=72;sw.height=14;
-    drawDashSwatch(sw,g.dash,g.active?S.pattern.highlightColor:g.color);
-    const li=document.createElement('input');li.className='size-lbl-in';li.value=g.label;
-    li.addEventListener('change',()=>{g.label=li.value;saveState();});
-    const ab=document.createElement('button');ab.className='act-sz'+(g.active?' on':'');
-    ab.title='Mark as active size';ab.textContent='★';
-    ab.addEventListener('click',async()=>{
-      const prev=S.pattern.groups.find(x=>x.active&&x!==g);
-      S.pattern.groups.forEach(x=>x.active=false);g.active=true;
-      updateSizesPanel();
-      if(prev)prev.canvas=await renderSingleGroup(prev);
-      g.canvas=await renderSingleGroup(g);saveState();
-    });
-    const hdr=document.createElement('div');hdr.className='size-hdr';hdr.append(sw,li,ab);
-
-    const vis=document.createElement('div');vis.className='size-vis';
-    ['show','ghost','hide'].forEach(v=>{
-      const b=document.createElement('button');
-      b.className='vis-btn'+(g.vis===v?' vs-'+v:'');b.textContent=v[0].toUpperCase()+v.slice(1);
-      b.addEventListener('click',()=>{g.vis=v;updateSizesPanel();saveState();});
-      vis.appendChild(b);
-    });
-    const ctrls=document.createElement('div');ctrls.className='size-ctrls';
-    const cp=document.createElement('input');cp.type='color';cp.value=g.color;
-    cp.addEventListener('input',async()=>{
-      g.color=cp.value;drawDashSwatch(sw,g.dash,g.active?S.pattern.highlightColor:g.color);
-      g.canvas=await renderSingleGroup(g);saveState();
-    });
-    const wt=document.createElement('input');wt.type='range';wt.min=.5;wt.max=5;wt.step=.5;wt.value=g.weight??1;wt.style.flex='1';wt.title='Weight';
-    wt.addEventListener('input',()=>{g.weight=parseFloat(wt.value);});
-    const inv=document.createElement('button');inv.className='vis-btn'+(g.invert?' vs-show':'');inv.title='Invert';inv.textContent='⟳';inv.style.padding='2px 5px';
-    inv.addEventListener('click',()=>{g.invert=!g.invert;inv.className='vis-btn'+(g.invert?' vs-show':'');saveState();});
-    ctrls.append(cp,wt,inv);
-    entry.append(hdr,vis,ctrls);E.sizesPanel.appendChild(entry);
-  }
-}
-function drawDashSwatch(c,dash,color){
-  const sc=c.getContext('2d');sc.clearRect(0,0,c.width,c.height);sc.fillStyle='#1c1c1c';sc.fillRect(0,0,c.width,c.height);
-  sc.strokeStyle=color;sc.lineWidth=2;sc.setLineDash(dash.length?dash:[]);
-  sc.beginPath();sc.moveTo(4,c.height/2);sc.lineTo(c.width-4,c.height/2);sc.stroke();sc.setLineDash([]);
-}
-
-// ── PATTERN TRANSFORM ─────────────────────────────────────────────
-function centerPattern(){
-  const vp=S.pattern.assembled?{width:S.pattern.assembledW,height:S.pattern.assembledH}:S.pattern.viewport;
-  if(!vp)return;
-  const sc=S.pattern.transform.scale;
-  S.pattern.transform.x=(S.canvasW-vp.width*sc)/2;
-  S.pattern.transform.y=(S.canvasH-vp.height*sc)/2;
-  updateXYInputs();
-}
-function updateXYInputs(){
-  document.getElementById('pat-x').value=Math.round(S.pattern.transform.x);
-  document.getElementById('pat-y').value=Math.round(S.pattern.transform.y);
-}
-function applyRefSquareScale(){
-  const pts=S.pattern.refSquare.points;if(pts.length<2)return;
-  const pxDist=dist(pts[0],pts[1]);
-  const realSize=parseFloat(document.getElementById('ref-sq-size').value)||2;
-  const newScale=(S.scale.ppu*realSize)/pxDist*S.pattern.transform.scale;
-  S.pattern.transform.scale=clamp(newScale,.05,8);
-  document.getElementById('pat-scale').value=S.pattern.transform.scale;
-  document.getElementById('pat-scale-val').textContent=Math.round(S.pattern.transform.scale*100)+'%';
-  E.refSqCtrls.classList.add('hidden');E.refSqIdle.classList.remove('hidden');
-  E.refSqHint.textContent='Scale applied.';S.pattern.refSquare.points=[];saveState();
-}
-
-// ── SNAP ─────────────────────────────────────────────────────────
-function snapCornerToGrid(idx){
-  const{nCols,nRows}=getGridDims();
-  const c=S.corners[idx];let best=null,bd=Infinity;
-  for(let r=0;r<=nRows;r++)for(let cc=0;cc<=nCols;cc++){
-    const p=bilinear(cc/nCols,r/nRows),d=dist(c,p);if(d<bd){bd=d;best=p;}
-  }
-  if(best&&bd<40)S.corners[idx]={...best};
-}
-
-// ── RENDER ───────────────────────────────────────────────────────
-function render(){
-  ctx.clearRect(0,0,S.canvasW,S.canvasH);
-  ctx.fillStyle=S.projectMode?'#000':'#0d0d0d';
-  ctx.fillRect(0,0,S.canvasW,S.canvasH);
-  drawGrid();drawPattern();
-  if(!S.projectMode){
-    if(S.appMode==='calibrate'){drawScaleRef();drawCorners();drawCrosshair();}
-    if(S.appMode==='pattern'){drawRefSquare();drawCorners();}
-    _loupeBuffer=(S.floatTools.loupe&&S.floatingIdx!==-1)?E.mainCanvas:null;
-    drawLoupe();drawMinimap();
-  }
-}
-function startRenderLoop(){(function f(){render();requestAnimationFrame(f);})();}
-
-// ── MOUSE / KEYBOARD ─────────────────────────────────────────────
-function canvasXY(e){const r=E.mainCanvas.getBoundingClientRect();return{x:e.clientX-r.left,y:e.clientY-r.top};}
-
-let _noDbClick=false;
-E.mainCanvas.addEventListener('mousemove',onMouseMove);
-E.mainCanvas.addEventListener('mousedown',onMouseDown);
-E.mainCanvas.addEventListener('mouseup',onMouseUp);
-E.mainCanvas.addEventListener('dblclick',onDblClick);
-E.mainCanvas.addEventListener('click',onClick);
-E.mainCanvas.addEventListener('contextmenu',e=>e.preventDefault());
-// Scroll-to-zoom on pattern
-E.mainCanvas.addEventListener('wheel',e=>{
-  if(S.appMode!=='pattern'||!S.pattern.groups.length)return;
-  e.preventDefault();
-  const{x,y}=canvasXY(e);
-  const delta=e.deltaY>0?.9:1.1;
-  const newScale=clamp(S.pattern.transform.scale*delta,.05,8);
-  // Zoom toward cursor
-  S.pattern.transform.x=x-(x-S.pattern.transform.x)*(newScale/S.pattern.transform.scale);
-  S.pattern.transform.y=y-(y-S.pattern.transform.y)*(newScale/S.pattern.transform.scale);
-  S.pattern.transform.scale=newScale;
-  document.getElementById('pat-scale').value=newScale;
-  document.getElementById('pat-scale-val').textContent=Math.round(newScale*100)+'%';
-  updateXYInputs();
-},{passive:false});
-
-function onMouseMove(e){
-  const{x,y}=canvasXY(e);S.cursor={x,y};
-  if(S.floatingIdx!==-1){S.corners[S.floatingIdx]={x,y};if(S.floatTools.snap)snapCornerToGrid(S.floatingIdx);return;}
-  if(S.draggingIdx>=0){S.corners[S.draggingIdx]={x,y};return;}
-  if(S.pattern.dragging){
-    S.pattern.transform.x=S.pattern.dragStartPos.x+(x-S.pattern.dragStartMouse.x);
-    S.pattern.transform.y=S.pattern.dragStartPos.y+(y-S.pattern.dragStartMouse.y);
-    updateXYInputs();return;
-  }
-  const hi=hitCorner(x,y);
-  E.mainCanvas.style.cursor=hi>=0?'grab':(S.scale.picking||S.pattern.refSquare.picking?'crosshair':'default');
-}
-function onMouseDown(e){
-  if(e.button!==0)return;
-  const{x,y}=canvasXY(e);
-  if(S.floatingIdx!==-1)return;
-  const hi=hitCorner(x,y);
-  if(hi>=0&&S.cornerMode==='drag'){S.draggingIdx=hi;E.mainCanvas.style.cursor='grabbing';return;}
-  if(S.scale.picking||S.pattern.refSquare.picking)return;
-  if(S.appMode==='pattern'&&hi<0){
-    S.pattern.dragging=true;S.pattern.dragStartMouse={x,y};S.pattern.dragStartPos={...S.pattern.transform};
-    E.mainCanvas.style.cursor='grabbing';
-  }
-}
-function onMouseUp(){
-  if(S.draggingIdx>=0){S.draggingIdx=-1;saveState();E.mainCanvas.style.cursor='default';}
-  if(S.pattern.dragging){S.pattern.dragging=false;saveState();E.mainCanvas.style.cursor='default';}
-}
-function onDblClick(e){
-  if(S.cornerMode!=='float'||_noDbClick)return;
-  const{x,y}=canvasXY(e);const hi=hitCorner(x,y);
-  if(hi>=0&&S.floatingIdx===-1){
-    S.floatingIdx=hi;E.floatToolbar.classList.remove('hidden');
-    document.getElementById('ft-corner-name').textContent=CORNER_NAMES[hi];
-    E.mainCanvas.style.cursor='none';
-  }
-}
-function onClick(e){
-  if(e.detail>1)return;
-  const{x,y}=canvasXY(e);
-  if(S.floatingIdx!==-1){
-    S.floatingIdx=-1;E.floatToolbar.classList.add('hidden');E.mainCanvas.style.cursor='default';
-    _noDbClick=true;setTimeout(()=>_noDbClick=false,400);saveState();return;
-  }
-  if(S.appMode==='calibrate'&&S.scale.picking){
-    S.scale.points.push({x,y});
-    if(S.scale.points.length===1)E.scaleHint.textContent='Now click the second point…';
-    else if(S.scale.points.length>=2){S.scale.picking=false;showScaleDistUI();}
-    return;
-  }
-  if(S.appMode==='pattern'&&S.pattern.refSquare.picking){
-    S.pattern.refSquare.points.push({x,y});
-    if(S.pattern.refSquare.points.length===1)E.refSqHint.textContent='Click the opposite corner…';
-    else if(S.pattern.refSquare.points.length>=2){
-      S.pattern.refSquare.picking=false;
-      E.refSqActive.classList.add('hidden');E.refSqIdle.classList.remove('hidden');
-      E.refSqCtrls.classList.remove('hidden');
-      E.refSqHint.textContent='Enter the real size and click Apply Scale.';
-    }
-  }
-}
-document.addEventListener('keydown',e=>{
-  if(S.projectMode){if(e.key==='p'||e.key==='P'||e.key==='Escape')exitProject();return;}
-  if(S.floatingIdx!==-1&&['ArrowUp','ArrowDown','ArrowLeft','ArrowRight'].includes(e.key)){
-    e.preventDefault();const s=e.shiftKey?10:1;const c=S.corners[S.floatingIdx];
-    if(e.key==='ArrowUp')c.y-=s;if(e.key==='ArrowDown')c.y+=s;
-    if(e.key==='ArrowLeft')c.x-=s;if(e.key==='ArrowRight')c.x+=s;
-    if(S.floatTools.snap)snapCornerToGrid(S.floatingIdx);
-  }
-  if(e.key==='Escape'&&S.floatingIdx!==-1){S.floatingIdx=-1;E.floatToolbar.classList.add('hidden');E.mainCanvas.style.cursor='default';saveState();}
-  if((e.key==='p'||e.key==='P')&&S.floatingIdx===-1&&!e.ctrlKey&&!e.metaKey)enterProject();
-  // Arrow pan in pattern mode
-  if(S.appMode==='pattern'&&S.floatingIdx===-1&&['ArrowUp','ArrowDown','ArrowLeft','ArrowRight'].includes(e.key)&&!e.target.matches('input')){
-    e.preventDefault();const s=e.shiftKey?50:10;
-    if(e.key==='ArrowUp')S.pattern.transform.y+=s;if(e.key==='ArrowDown')S.pattern.transform.y-=s;
-    if(e.key==='ArrowLeft')S.pattern.transform.x+=s;if(e.key==='ArrowRight')S.pattern.transform.x-=s;
-    updateXYInputs();
-  }
-});
-
-// ── PROJECT MODE ─────────────────────────────────────────────────
-function enterProject(){S.projectMode=true;document.body.classList.add('proj-mode');E.canvasArea.requestFullscreen?.().catch(()=>{});}
-function exitProject(){S.projectMode=false;document.body.classList.remove('proj-mode');if(document.fullscreenElement)document.exitFullscreen?.();}
-document.addEventListener('fullscreenchange',()=>{if(!document.fullscreenElement&&S.projectMode)exitProject();setTimeout(setupCanvas,50);});
-
-// ── SCALE VERIFY ──────────────────────────────────────────────────
-function showScaleDistUI(){
-  E.scaleDistRow.classList.remove('hidden');E.scaleActRow.classList.remove('hidden');
-  E.scalePickRow.classList.add('hidden');E.scaleHint.textContent='Enter the real distance.';
-}
-function lockScale(){
-  if(S.scale.points.length<2)return;
-  S.scale.realDist=parseFloat(document.getElementById('scale-distance').value)||1;
-  S.scale.ppu=dist(S.scale.points[0],S.scale.points[1])/S.scale.realDist;
-  S.scale.locked=true;
-  E.scaleLockedInfo.textContent=`Locked: ${S.scale.ppu.toFixed(1)} px/${S.grid.unit}`;
-  E.scaleLockedInfo.classList.remove('hidden');
-  E.scaleDistRow.classList.add('hidden');E.scaleActRow.classList.add('hidden');
-  E.scaleHint.textContent='Scale locked.';saveState();
-}
-function clearScale(){
-  S.scale.points=[];S.scale.locked=false;S.scale.picking=false;
-  E.scaleLockedInfo.classList.add('hidden');E.scaleDistRow.classList.add('hidden');E.scaleActRow.classList.add('hidden');
-  E.scalePickRow.classList.remove('hidden');E.scaleHint.textContent='Click two points to verify real-world scale.';
-}
-
-// ── PERSISTENCE ──────────────────────────────────────────────────
-function saveState(){
-  try{
-    localStorage.setItem('linea_v3',JSON.stringify({
-      corners:S.corners,grid:S.grid,board:S.board,projector:S.projector,
-      scale:{ppu:S.scale.ppu,locked:S.scale.locked,realDist:S.scale.realDist,points:S.scale.points},
-      globalInvert:S.globalInvert,
-      pattern:{
-        transform:S.pattern.transform,bgOpacity:S.pattern.bgOpacity,bgColor:S.pattern.bgColor,
-        lineColor:S.pattern.lineColor,highlightColor:S.pattern.highlightColor,lineWeight:S.pattern.lineWeight,
-        globalInvert:S.pattern.globalInvert,
-        groups:S.pattern.groups.map(g=>({id:g.id,dashKey:g.dashKey,dash:g.dash,label:g.label,
-          vis:g.vis,color:g.color,active:g.active,invert:g.invert})),
-      },
-    }));
-  }catch(e){}
-}
-function loadState(){
-  try{
-    const raw=localStorage.getItem('linea_v3');if(!raw)return;
-    const d=JSON.parse(raw);
-    if(d.corners?.length===4){S.corners=d.corners;S.cornersInit=true;}
-    if(d.grid)Object.assign(S.grid,d.grid);
-    if(d.board)Object.assign(S.board,d.board);
-    if(d.projector)Object.assign(S.projector,d.projector);
-    if(d.scale)Object.assign(S.scale,d.scale);
-    if(d.globalInvert!==undefined)S.globalInvert=d.globalInvert;
-    if(d.pattern){
-      Object.assign(S.pattern.transform,d.pattern.transform??{});
-      S.pattern.bgOpacity=d.pattern.bgOpacity??1;
-      S.pattern.bgColor=d.pattern.bgColor??'#ffffff';
-      S.pattern.lineColor=d.pattern.lineColor??'#000000';
-      S.pattern.highlightColor=d.pattern.highlightColor??'#ff2222';
-      S.pattern.lineWeight=d.pattern.lineWeight??1;
-      S.pattern.globalInvert=d.pattern.globalInvert??false;
-    }
-  }catch(e){}
-}
-
-// ── UI BINDINGS ───────────────────────────────────────────────────
-function bindUI(){
-  // mode tabs
-  document.querySelectorAll('.mode-tab').forEach(t=>t.addEventListener('click',()=>{
-    S.appMode=t.dataset.mode;
-    document.querySelectorAll('.mode-tab').forEach(x=>x.classList.toggle('active',x===t));
-    document.getElementById('panel-calibrate').classList.toggle('hidden',S.appMode!=='calibrate');
-    document.getElementById('panel-pattern').classList.toggle('hidden',S.appMode!=='pattern');
-  }));
-
-  // board/projector
-  populatePresets();
-  document.getElementById('board-preset').addEventListener('change',onBoardPresetChange);
-  document.getElementById('proj-preset').addEventListener('change',onProjPresetChange);
-  ['board-w','board-h'].forEach(id=>document.getElementById(id).addEventListener('input',()=>{
-    S.board.w=parseFloat(document.getElementById('board-w').value)||S.board.w;
-    S.board.h=parseFloat(document.getElementById('board-h').value)||S.board.h;
-    updateSetupInfo();
-  }));
-  document.getElementById('btn-apply-setup').addEventListener('click',applyBoardSetup);
-  onBoardPresetChange();onProjPresetChange();
-
-  // grid
-  const setUnit=u=>{S.grid.unit=u;document.getElementById('unit-in').classList.toggle('active',u==='in');document.getElementById('unit-cm').classList.toggle('active',u==='cm');document.getElementById('scale-unit-lbl').textContent=u;document.getElementById('ref-sq-unit-lbl').textContent=u;saveState();};
-  document.getElementById('unit-in').addEventListener('click',()=>setUnit('in'));
-  document.getElementById('unit-cm').addEventListener('click',()=>setUnit('cm'));
-  document.getElementById('cell-size').addEventListener('change',e=>{S.grid.cellSize=parseFloat(e.target.value);saveState();});
-  document.getElementById('grid-color').addEventListener('input',e=>{S.grid.color=e.target.value;saveState();});
-  const sval=(id,vid,key,fmt)=>{
-    const s=document.getElementById(id),vl=vid?document.getElementById(vid):null;
-    s.addEventListener('input',e=>{
-      const v=parseFloat(e.target.value);
-      const ks=key.split('.');let o=S;for(let i=0;i<ks.length-1;i++)o=o[ks[i]];o[ks[ks.length-1]]=v;
-      if(vl)vl.textContent=fmt(v);saveState();
-    });
-  };
-  sval('grid-opacity','grid-opacity-val','grid.opacity',v=>Math.round(v*100)+'%');
-  sval('grid-weight','grid-weight-val','grid.lineWeight',v=>v+'px');
-
-  // corner mode
-  document.getElementById('corner-drag-mode').addEventListener('click',()=>{
-    S.cornerMode='drag';document.getElementById('corner-drag-mode').classList.add('active');document.getElementById('corner-float-mode').classList.remove('active');E.floatModeInfo.classList.add('hidden');
-    if(S.floatingIdx!==-1){S.floatingIdx=-1;E.floatToolbar.classList.add('hidden');}
-  });
-  document.getElementById('corner-float-mode').addEventListener('click',()=>{
-    S.cornerMode='float';document.getElementById('corner-float-mode').classList.add('active');document.getElementById('corner-drag-mode').classList.remove('active');E.floatModeInfo.classList.remove('hidden');
-  });
-
-  // float tools
-  const ft=(sbId,ftId,key)=>{
-    const tog=()=>{S.floatTools[key]=!S.floatTools[key];document.getElementById(sbId).classList.toggle('active',S.floatTools[key]);document.getElementById(ftId).classList.toggle('active',S.floatTools[key]);if(key==='loupe'&&!S.floatTools.loupe)E.loupeCanvas.style.display='none';};
-    document.getElementById(sbId).addEventListener('click',tog);document.getElementById(ftId).addEventListener('click',tog);
-  };
-  ft('sb-loupe','ft-loupe','loupe');ft('sb-snap','ft-snap','snap');ft('sb-crosshair','ft-crosshair','crosshair');
-  document.getElementById('ft-cancel').addEventListener('click',()=>{S.floatingIdx=-1;E.floatToolbar.classList.add('hidden');E.mainCanvas.style.cursor='default';});
-
-  // scale verify
-  document.getElementById('btn-pick-scale').addEventListener('click',()=>{S.scale.points=[];S.scale.picking=true;S.scale.locked=false;E.scaleLockedInfo.classList.add('hidden');E.scalePickRow.classList.add('hidden');E.scaleHint.textContent='Click point 1 on canvas…';});
-  document.getElementById('btn-lock-scale').addEventListener('click',lockScale);
-  document.getElementById('btn-clear-scale').addEventListener('click',clearScale);
-  document.getElementById('scale-distance').addEventListener('change',e=>{S.scale.realDist=parseFloat(e.target.value)||1;});
-
-  // reset calibration
-  document.getElementById('btn-reset-cal').addEventListener('click',()=>document.getElementById('modal-reset').classList.remove('hidden'));
-  document.getElementById('modal-cancel').addEventListener('click',()=>document.getElementById('modal-reset').classList.add('hidden'));
-  document.getElementById('modal-confirm').addEventListener('click',()=>{document.getElementById('modal-reset').classList.add('hidden');S.cornersInit=false;initCorners();clearScale();saveState();});
-
-  // PDF upload / unload
-  document.getElementById('pdf-input').addEventListener('change',e=>{if(e.target.files[0])loadPDF(e.target.files[0]);});
-  const dropL=document.getElementById('pdf-drop-label');
-  dropL.addEventListener('dragover',e=>{e.preventDefault();dropL.classList.add('drag-over');});
-  dropL.addEventListener('dragleave',()=>dropL.classList.remove('drag-over'));
-  dropL.addEventListener('drop',e=>{e.preventDefault();dropL.classList.remove('drag-over');const f=e.dataTransfer.files[0];if(f&&f.type==='application/pdf')loadPDF(f);});
-  document.getElementById('btn-unload-pdf').addEventListener('click',unloadPDF);
-  document.getElementById('btn-prev-page').addEventListener('click',async()=>{if(S.pattern.pageNum>1){S.pattern.pageNum--;await renderPDFPage();}});
-  document.getElementById('btn-next-page').addEventListener('click',async()=>{if(S.pattern.pageNum<S.pattern.numPages){S.pattern.pageNum++;await renderPDFPage();}});
-  document.getElementById('btn-open-assembly').addEventListener('click',()=>{if(S.pattern.pdfDoc)initAssembly();});
-
-  // assembly modal
-  E.asmCols.addEventListener('change',()=>{S.assembly.cols=parseInt(E.asmCols.value)||6;buildAsmGrid();});
-  E.asmRows.addEventListener('change',()=>{S.assembly.rows=parseInt(E.asmRows.value)||7;buildAsmGrid();});
-  E.asmTrim.addEventListener('input',()=>{S.assembly.overlapTrim=parseFloat(E.asmTrim.value);E.asmTrimVal.textContent=S.assembly.overlapTrim.toFixed(2)+'"';updateAsmSizeInfo();});
-  document.getElementById('btn-asm-excl-pg1').addEventListener('click',()=>{S.assembly.layout.forEach(l=>{if(l.pageNum===1)l.excluded=true;});buildAsmGrid();});
-  document.getElementById('btn-asm-excl-first2').addEventListener('click',()=>{S.assembly.layout.forEach(l=>{if(l.pageNum<=2)l.excluded=true;});buildAsmGrid();});
-  document.getElementById('btn-asm-include-all').addEventListener('click',()=>{S.assembly.layout.forEach(l=>l.excluded=false);buildAsmGrid();});
-  document.getElementById('btn-asm-assemble').addEventListener('click',assemblePattern);
-  document.getElementById('btn-asm-cancel').addEventListener('click',()=>{
-    document.getElementById('modal-assembly').classList.add('hidden');
-    if(!S.pattern.assembled&&S.pattern.pdfDoc)renderPDFPage();
-  });
-
-  // pattern scale
-  document.getElementById('btn-start-ref-sq').addEventListener('click',()=>{
-    S.pattern.refSquare.picking=true;S.pattern.refSquare.points=[];
-    E.refSqIdle.classList.add('hidden');E.refSqActive.classList.remove('hidden');E.refSqCtrls.classList.add('hidden');
-    E.refSqHint.textContent='Click point 1 of the reference mark on canvas…';
-  });
-  document.getElementById('btn-cancel-ref-sq').addEventListener('click',()=>{S.pattern.refSquare.picking=false;S.pattern.refSquare.points=[];E.refSqActive.classList.add('hidden');E.refSqIdle.classList.remove('hidden');E.refSqHint.textContent='Click two corners of the pattern\'s printed reference mark.';});
-  document.getElementById('btn-apply-ref-sq').addEventListener('click',applyRefSquareScale);
-  document.getElementById('btn-clear-ref-sq').addEventListener('click',()=>{S.pattern.refSquare.points=[];E.refSqCtrls.classList.add('hidden');E.refSqIdle.classList.remove('hidden');});
-
-  // transform
-  document.getElementById('pat-x').addEventListener('change',e=>{S.pattern.transform.x=parseFloat(e.target.value)||0;saveState();});
-  document.getElementById('pat-y').addEventListener('change',e=>{S.pattern.transform.y=parseFloat(e.target.value)||0;saveState();});
-  document.getElementById('btn-center-pat').addEventListener('click',()=>{centerPattern();saveState();});
-  document.getElementById('btn-reset-xform').addEventListener('click',()=>{S.pattern.transform={x:0,y:0,rotation:0,scale:1,opacity:1};centerPattern();syncPatternUI();saveState();});
-  const bindRS=(slid,numId,vid,key,fmt)=>{
-    const sl=document.getElementById(slid),nu=numId?document.getElementById(numId):null,vl=vid?document.getElementById(vid):null;
-    const upd=v=>{const ks=key.split('.');let o=S;for(let i=0;i<ks.length-1;i++)o=o[ks[i]];o[ks[ks.length-1]]=v;sl.value=v;if(nu)nu.value=v;if(vl)vl.textContent=fmt(v);saveState();};
-    sl.addEventListener('input',e=>upd(parseFloat(e.target.value)));nu?.addEventListener('change',e=>upd(parseFloat(e.target.value)));
-  };
-  bindRS('pat-rot','pat-rot-num',null,'pattern.transform.rotation',v=>v+'°');
-  bindRS('pat-scale',null,'pat-scale-val','pattern.transform.scale',v=>Math.round(v*100)+'%');
-  bindRS('pat-opacity',null,'pat-opacity-val','pattern.transform.opacity',v=>Math.round(v*100)+'%');
-
-  // background
-  sval('bg-opacity','bg-opacity-val','pattern.bgOpacity',v=>Math.round(v*100)+'%');
-  document.getElementById('bg-color').addEventListener('input',e=>{S.pattern.bgColor=e.target.value;saveState();});
-
-  // line style
-  document.getElementById('line-color').addEventListener('input',e=>{S.pattern.lineColor=e.target.value;saveState();});
-  document.getElementById('highlight-color').addEventListener('input',async e=>{S.pattern.highlightColor=e.target.value;const ag=S.pattern.groups.find(g=>g.active);if(ag)ag.canvas=await renderSingleGroup(ag);saveState();});
-  sval('line-weight','line-weight-val','pattern.lineWeight',v=>v+'px');
-
-  // global invert + project
-  document.getElementById('btn-global-invert').addEventListener('click',()=>{S.globalInvert=!S.globalInvert;document.getElementById('btn-global-invert').classList.toggle('active',S.globalInvert);saveState();});
-  document.getElementById('btn-project-mode').addEventListener('click',enterProject);
-}
-
-function syncPatternUI(){
-  const t=S.pattern.transform;
-  document.getElementById('pat-x').value=Math.round(t.x);document.getElementById('pat-y').value=Math.round(t.y);
-  document.getElementById('pat-rot').value=t.rotation;document.getElementById('pat-rot-num').value=t.rotation;
-  document.getElementById('pat-scale').value=t.scale;document.getElementById('pat-scale-val').textContent=Math.round(t.scale*100)+'%';
-  document.getElementById('pat-opacity').value=t.opacity;document.getElementById('pat-opacity-val').textContent=Math.round(t.opacity*100)+'%';
-  document.getElementById('bg-opacity').value=S.pattern.bgOpacity;document.getElementById('bg-opacity-val').textContent=Math.round(S.pattern.bgOpacity*100)+'%';
-  document.getElementById('bg-color').value=S.pattern.bgColor;
-  document.getElementById('line-color').value=S.pattern.lineColor;
-  document.getElementById('highlight-color').value=S.pattern.highlightColor;
-  document.getElementById('btn-global-invert').classList.toggle('active',S.globalInvert);
-  if(S.scale.locked&&S.scale.points.length>=2){
-    E.scaleLockedInfo.textContent=`Locked: ${S.scale.ppu.toFixed(1)} px/${S.grid.unit}`;
-    E.scaleLockedInfo.classList.remove('hidden');E.scalePickRow.classList.add('hidden');E.scaleHint.textContent='Scale locked.';
-  }
-  document.getElementById('grid-opacity').value=S.grid.opacity;document.getElementById('grid-opacity-val').textContent=Math.round(S.grid.opacity*100)+'%';
-  document.getElementById('grid-weight').value=S.grid.lineWeight;document.getElementById('grid-weight-val').textContent=S.grid.lineWeight+'px';
-  document.getElementById('grid-color').value=S.grid.color;document.getElementById('cell-size').value=S.grid.cellSize;
-  document.getElementById('unit-in').classList.toggle('active',S.grid.unit==='in');document.getElementById('unit-cm').classList.toggle('active',S.grid.unit==='cm');
-  document.getElementById('scale-unit-lbl').textContent=S.grid.unit;document.getElementById('ref-sq-unit-lbl').textContent=S.grid.unit;
-}
-
-// ── INIT ──────────────────────────────────────────────────────────
-function init(){
-  setupCanvas();loadState();
-  if(S.corners.every(c=>c.x===0&&c.y===0))initCorners();
-  syncPatternUI();bindUI();startRenderLoop();
-}
-init();
-</script>
-</body>
-</html>
